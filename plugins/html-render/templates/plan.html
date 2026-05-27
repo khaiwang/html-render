@@ -1,0 +1,192 @@
+<!--
+  plan.html — narrative template for plans, designs, explanations.
+
+  Anti-slop carry-overs from visual-explainer:
+    - IBM Plex Sans / IBM Plex Mono (no Inter/Roboto)
+    - No purple-violet-cyan defaults
+    - No emoji icons in section headers
+    - Vary visual weight: hero/body/recessed (use the .card variants)
+
+  Placeholders (double-curly, no spaces inside):
+    TITLE        — short page title
+    SUBTITLE     — one-line summary
+    TIMESTAMP    — ISO timestamp
+    HERO         — 1-2 paragraph executive summary
+    SECTIONS     — repeated section-card blocks
+
+  Section card structure (compose freely):
+    section.card with h2.card__label, h3.card__title, div.card__body.
+
+  Variants:
+    .card.hero      — for the lead/summary section
+    .card.recessed  — for reference/file-map sections (compact, dim)
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{TITLE}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Instrument+Serif&display=swap" rel="stylesheet">
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f8f7f4;
+    --surface: #ffffff;
+    --surface-dim: #f1efea;
+    --surface-recessed: #efece6;
+    --border: rgba(20,20,30,0.10);
+    --text: #1c1c22;
+    --text-dim: #5a5a66;
+    --accent: #1e3a5f;       /* deep blue */
+    --accent-soft: #d4a73a;  /* gold */
+    --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: "IBM Plex Sans", -apple-system, system-ui, sans-serif;
+    --serif: "Instrument Serif", Georgia, serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14141a;
+      --surface: #1c1c24;
+      --surface-dim: #22222c;
+      --surface-recessed: #1a1a22;
+      --border: rgba(255,255,255,0.10);
+      --text: #e8e8ee;
+      --text-dim: #9a9aab;
+      --accent: #6ea8d6;
+      --accent-soft: #e4d089;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.6;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 3rem 1.5rem 5rem; }
+  header.page { margin-bottom: 2.5rem; }
+  h1 {
+    font-family: var(--serif);
+    font-size: 2.4rem;
+    font-weight: 400;
+    margin: 0 0 0.5rem;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+  }
+  .subtitle { color: var(--text-dim); font-size: 1.05rem; max-width: 60ch; }
+  .meta {
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    margin-top: 1rem;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1.5rem 1.75rem;
+    margin-bottom: 1.25rem;
+  }
+  .card.hero {
+    background: var(--surface);
+    border-left: 3px solid var(--accent-soft);
+    padding: 2rem 2rem;
+    font-size: 1.05rem;
+  }
+  .card.recessed {
+    background: var(--surface-recessed);
+    padding: 1rem 1.25rem;
+    font-size: 0.92rem;
+  }
+  .card__label {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+    margin: 0 0 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .card__label::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+  .card__title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 0 0 1rem;
+  }
+  .card__body p:first-child { margin-top: 0; }
+  .card__body p:last-child { margin-bottom: 0; }
+  pre, code {
+    font-family: var(--mono);
+  }
+  pre {
+    background: var(--surface-dim);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.9rem 1rem;
+    overflow-x: auto;
+    font-size: 12.5px;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  code {
+    background: var(--surface-dim);
+    padding: 0.1em 0.35em;
+    border-radius: 3px;
+    font-size: 0.9em;
+  }
+  pre code { background: transparent; padding: 0; }
+  ul, ol { padding-left: 1.4rem; }
+  li { margin-bottom: 0.3rem; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    margin: 0.5rem 0;
+  }
+  th, td {
+    text-align: left;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+  }
+  th {
+    background: var(--surface-dim);
+    font-weight: 500;
+    color: var(--text-dim);
+  }
+  tr:nth-child(even) td { background: var(--surface-dim); }
+  a { color: var(--accent); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="page">
+    <h1>{{TITLE}}</h1>
+    <div class="subtitle">{{SUBTITLE}}</div>
+    <div class="meta">{{TIMESTAMP}}</div>
+  </header>
+
+  <section class="card hero">
+    <div class="card__body">{{HERO}}</div>
+  </section>
+
+  {{SECTIONS}}
+
+</div>
+</body>
+</html>

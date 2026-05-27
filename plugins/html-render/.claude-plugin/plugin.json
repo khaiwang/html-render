@@ -1,0 +1,9 @@
+{
+  "name": "html-render",
+  "version": "0.1.0",
+  "description": "Render Claude Code outputs (plans, reviews, diffs) as HTML on a remote server — generation happens in a background subagent so the main session stays plain-text.",
+  "author": {
+    "name": "khaiwang"
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,21 @@
+{
+  "name": "html-render",
+  "owner": {
+    "name": "khaiwang"
+  },
+  "metadata": {
+    "description": "Marketplace hosting the html-render plugin for Claude Code.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "html-render",
+      "description": "Render Claude Code outputs (plans, reviews, diffs) as HTML on a remote server — generation happens in a background subagent so the main session stays plain-text.",
+      "version": "0.1.0",
+      "author": {
+        "name": "khaiwang"
+      },
+      "source": "./plugins/html-render"
+    }
+  ]
+}

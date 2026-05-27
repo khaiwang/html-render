@@ -1,0 +1,164 @@
+<!--
+  review.html — narrative template tuned for reviews / recaps / audits.
+
+  Differs from plan.html in:
+    - Uses Editorial aesthetic: serif headlines, generous whitespace, warm cream bg
+    - Adds Good/Bad/Ugly card variants for structured analysis (left-border accents)
+
+  Placeholders (double-curly, no spaces inside): TITLE, SUBTITLE, TIMESTAMP, HERO, SECTIONS.
+
+  Variant cards for review content (use as section class):
+    card good      — green left border (worth calling out)
+    card bad       — red left border (concrete issues)
+    card ugly      — amber left border (tech debt / subtle)
+    card question  — blue left border (needs clarification)
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{TITLE}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #faf7f5;
+    --surface: #ffffff;
+    --surface-dim: #f3eee9;
+    --border: rgba(60,40,30,0.12);
+    --text: #2a2520;
+    --text-dim: #6b6258;
+    --good: #65a30d;
+    --bad: #be123c;
+    --ugly: #d97706;
+    --question: #0891b2;
+    --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: "IBM Plex Sans", -apple-system, system-ui, sans-serif;
+    --serif: "Crimson Pro", Georgia, serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1714;
+      --surface: #221d18;
+      --surface-dim: #2a2520;
+      --border: rgba(255,240,220,0.10);
+      --text: #ece2d5;
+      --text-dim: #a99e8e;
+      --good: #98d459;
+      --bad: #f0506e;
+      --ugly: #f0a437;
+      --question: #4fc6e0;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.65;
+  }
+  .wrap { max-width: 820px; margin: 0 auto; padding: 3.5rem 1.5rem 5rem; }
+  header.page { margin-bottom: 3rem; }
+  h1 {
+    font-family: var(--serif);
+    font-size: 2.6rem;
+    font-weight: 500;
+    margin: 0 0 0.5rem;
+    line-height: 1.1;
+  }
+  .subtitle {
+    font-family: var(--serif);
+    font-style: italic;
+    color: var(--text-dim);
+    font-size: 1.15rem;
+    max-width: 55ch;
+  }
+  .meta {
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    margin-top: 1.25rem;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1.5rem 1.75rem;
+    margin-bottom: 1.25rem;
+    border-left-width: 3px;
+  }
+  .card.hero {
+    border-left-color: var(--ugly);
+    font-family: var(--serif);
+    font-size: 1.2rem;
+    line-height: 1.55;
+    padding: 2rem 2rem;
+  }
+  .card.good     { border-left-color: var(--good); }
+  .card.bad      { border-left-color: var(--bad); }
+  .card.ugly     { border-left-color: var(--ugly); }
+  .card.question { border-left-color: var(--question); }
+  .card__label {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+    margin: 0 0 0.5rem;
+  }
+  .card.good     .card__label { color: var(--good); }
+  .card.bad      .card__label { color: var(--bad); }
+  .card.ugly     .card__label { color: var(--ugly); }
+  .card.question .card__label { color: var(--question); }
+  .card__title {
+    font-family: var(--serif);
+    font-size: 1.4rem;
+    font-weight: 500;
+    margin: 0 0 0.9rem;
+  }
+  .card__body p:first-child { margin-top: 0; }
+  .card__body p:last-child  { margin-bottom: 0; }
+  pre, code { font-family: var(--mono); }
+  pre {
+    background: var(--surface-dim);
+    border-radius: 3px;
+    padding: 0.8rem 1rem;
+    overflow-x: auto;
+    font-size: 12.5px;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  code {
+    background: var(--surface-dim);
+    padding: 0.1em 0.35em;
+    border-radius: 2px;
+    font-size: 0.88em;
+  }
+  pre code { background: transparent; padding: 0; }
+  ul, ol { padding-left: 1.3rem; }
+  li { margin-bottom: 0.35rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="page">
+    <h1>{{TITLE}}</h1>
+    <div class="subtitle">{{SUBTITLE}}</div>
+    <div class="meta">{{TIMESTAMP}}</div>
+  </header>
+
+  <section class="card hero">
+    <div class="card__body">{{HERO}}</div>
+  </section>
+
+  {{SECTIONS}}
+
+</div>
+</body>
+</html>

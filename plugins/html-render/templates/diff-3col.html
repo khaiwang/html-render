@@ -1,0 +1,246 @@
+<!--
+  diff-3col.html — strict 3-column line-by-line diff template.
+
+  Layout: BEFORE | AFTER | EXPLANATION
+
+  The renderer agent fills the placeholders below. Anti-slop principles
+  inherited from visual-explainer:
+    - No Inter / Roboto. Use IBM Plex Sans + IBM Plex Mono.
+    - No purple/violet/cyan gradient accents.
+    - No emoji in headings. Use monospace labels.
+    - No animated glows or gradient text.
+
+  Placeholders the renderer must replace (double-curly, no spaces):
+    TITLE              — page title
+    COMMIT_REF         — git ref or "working tree"
+    TIMESTAMP          — ISO-8601 timestamp of render
+    STATS_FILES        — file count
+    STATS_ADDED        — lines added
+    STATS_REMOVED      — lines removed
+    SUMMARY            — 2-4 sentence overview of what changed and why
+    FILE_SECTIONS      — repeated file blocks (see structure below)
+
+  File block structure (one per changed file):
+    section.file with header.file__header (path + stat) and div.hunk.
+    Each hunk row: gutter.before, col.col--before, gutter.after,
+    col.col--after, col.col--why (the explanation).
+
+  Notes for the renderer:
+    - Use grid-row: span N on the explanation cell to span multiple changed rows.
+    - Unchanged context lines: omit the col--why cell or leave empty.
+    - For pure additions: col--before is empty (still rendered for alignment).
+    - For pure removals: col--after is empty.
+    - Strip trailing newlines; do not insert nbsp padding.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{TITLE}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f8f7f4;
+    --surface: #ffffff;
+    --surface-dim: #f1efea;
+    --border: rgba(20, 20, 30, 0.10);
+    --text: #1c1c22;
+    --text-dim: #5a5a66;
+    --add-bg: #e6f4ea;
+    --add-fg: #1e6b3c;
+    --add-gutter: #2ea043;
+    --del-bg: #fbe9eb;
+    --del-fg: #8a1f2b;
+    --del-gutter: #cf222e;
+    --why-bg: #fdf6e3;
+    --why-fg: #6b5a16;
+    --why-border: #d4a73a;
+    --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: "IBM Plex Sans", -apple-system, system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14141a;
+      --surface: #1c1c24;
+      --surface-dim: #22222c;
+      --border: rgba(255, 255, 255, 0.10);
+      --text: #e8e8ee;
+      --text-dim: #9a9aab;
+      --add-bg: rgba(46, 160, 67, 0.16);
+      --add-fg: #7ee2a8;
+      --del-bg: rgba(207, 34, 46, 0.16);
+      --del-fg: #ff9a9f;
+      --why-bg: rgba(212, 167, 58, 0.12);
+      --why-fg: #e4d089;
+      --why-border: #b08a2e;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 1400px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+
+  header.page {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 1.25rem;
+    margin-bottom: 2rem;
+  }
+  h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 0 0 0.25rem;
+    letter-spacing: -0.01em;
+  }
+  .meta { color: var(--text-dim); font-size: 0.85rem; font-family: var(--mono); }
+  .meta span + span::before { content: " · "; opacity: 0.5; }
+
+  .stats {
+    display: flex;
+    gap: 1.5rem;
+    margin-top: 1rem;
+    font-family: var(--mono);
+    font-size: 0.85rem;
+  }
+  .stat { color: var(--text-dim); }
+  .stat strong { color: var(--text); font-weight: 500; }
+  .stat .add { color: var(--add-gutter); }
+  .stat .del { color: var(--del-gutter); }
+
+  .summary {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--why-border);
+    padding: 1rem 1.25rem;
+    border-radius: 4px;
+    margin-bottom: 2rem;
+    max-width: 80ch;
+  }
+  .summary p { margin: 0; }
+
+  section.file {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+  }
+  .file__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    background: var(--surface-dim);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+  .file__path {
+    font-family: var(--mono);
+    font-size: 0.9rem;
+    font-weight: 500;
+  }
+  .file__stat {
+    font-family: var(--mono);
+    font-size: 0.8rem;
+  }
+  .file__stat .add { color: var(--add-gutter); }
+  .file__stat .del { color: var(--del-gutter); }
+
+  .hunk {
+    display: grid;
+    grid-template-columns:
+      [before-num] 3rem [before] minmax(0, 1fr)
+      [after-num]  3rem [after]  minmax(0, 1fr)
+      [why]                       minmax(20ch, 0.7fr);
+    font-family: var(--mono);
+    font-size: 12.5px;
+    line-height: 1.55;
+  }
+  .hunk + .hunk { border-top: 1px dashed var(--border); }
+  .hunk-sep {
+    grid-column: 1 / -1;
+    padding: 0.4rem 1rem;
+    background: var(--surface-dim);
+    color: var(--text-dim);
+    font-size: 0.75rem;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  .gutter {
+    text-align: right;
+    padding: 0 0.6rem;
+    color: var(--text-dim);
+    user-select: none;
+    border-right: 1px solid var(--border);
+  }
+  .col {
+    padding: 0.05rem 0.6rem;
+    white-space: pre;
+    overflow-x: auto;
+  }
+  .col--before { border-right: 1px solid var(--border); }
+  .col--after  { border-right: 1px solid var(--border); }
+  .col.add { background: var(--add-bg); color: var(--add-fg); }
+  .col.del { background: var(--del-bg); color: var(--del-fg); }
+  .col.add::before { content: "+ "; color: var(--add-gutter); }
+  .col.del::before { content: "− "; color: var(--del-gutter); }
+  .col.context { color: var(--text-dim); }
+
+  .col--why {
+    background: var(--why-bg);
+    color: var(--why-fg);
+    border-left: 3px solid var(--why-border);
+    padding: 0.5rem 0.9rem;
+    font-family: var(--sans);
+    font-size: 13px;
+    line-height: 1.5;
+    align-self: start;
+  }
+  .col--why:empty { background: transparent; border-left-color: transparent; }
+
+  /* Mobile: stack columns */
+  @media (max-width: 900px) {
+    .hunk {
+      grid-template-columns: [before-num] 2.5rem [before] minmax(0, 1fr);
+    }
+    .col--after, .col--why, .gutter.after { display: none; }
+    .wrap { padding: 1rem 0.5rem; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="page">
+    <h1>{{TITLE}}</h1>
+    <div class="meta">
+      <span>{{COMMIT_REF}}</span>
+      <span>{{TIMESTAMP}}</span>
+    </div>
+    <div class="stats">
+      <span class="stat"><strong>{{STATS_FILES}}</strong> files</span>
+      <span class="stat"><strong class="add">+{{STATS_ADDED}}</strong> added</span>
+      <span class="stat"><strong class="del">−{{STATS_REMOVED}}</strong> removed</span>
+    </div>
+  </header>
+
+  <div class="summary">
+    <p>{{SUMMARY}}</p>
+  </div>
+
+  {{FILE_SECTIONS}}
+
+</div>
+</body>
+</html>
