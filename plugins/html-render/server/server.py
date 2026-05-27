@@ -29,6 +29,9 @@ def data_dir() -> Path:
 
 ROOT = data_dir()
 PORT = int(os.environ.get("HTML_RENDER_PORT", "7777"))
+# Sessions holding the N most-recent renders stay expanded by default; older
+# ones (and the legacy group) auto-collapse. Override with HTML_RENDER_RECENT.
+RECENT_LIMIT = max(1, int(os.environ.get("HTML_RENDER_RECENT", "3")))
 
 INDEX_CSS = """
 :root { color-scheme: light dark; }
@@ -80,6 +83,14 @@ a:hover { border-bottom-style: solid; }
 .tag-diff { background: rgba(63, 185, 80, 0.18); color: #2ea043; }
 .tag-plan { background: rgba(101, 116, 205, 0.18); color: #6574cd; }
 .tag-review { background: rgba(212, 167, 58, 0.18); color: #b08a2e; }
+summary { cursor: pointer; user-select: none; }
+summary::-webkit-details-marker { color: #888; }
+summary::marker { color: #888; }
+details.session[open] > summary { margin-bottom: 0.4rem; }
+details.session > summary { margin-bottom: 0; }
+details.project { margin-bottom: 2rem; }
+details.project > summary.project__name { margin-bottom: 1rem; }
+details.session:not([open]) > summary .session__title { color: #888; font-weight: 400; }
 """
 
 TITLE_RE = re.compile(r"<title>(.*?)</title>", re.IGNORECASE | re.DOTALL)
@@ -199,6 +210,20 @@ def render_index() -> bytes:
     projects, legacy = collect()
     total = sum(len(s["pages"]) for proj in projects for s in proj["sessions"]) + len(legacy)
 
+    # Auto-collapse: keep open only sessions whose newest page is among the
+    # RECENT_LIMIT most-recent renders overall. Everything else starts closed
+    # (click any summary to toggle).
+    page_mtimes = sorted(
+        (p.stat().st_mtime for proj in projects for s in proj["sessions"] for p in s["pages"]),
+        reverse=True,
+    )
+    if not page_mtimes:
+        threshold = 0.0
+    elif len(page_mtimes) >= RECENT_LIMIT:
+        threshold = page_mtimes[RECENT_LIMIT - 1]
+    else:
+        threshold = page_mtimes[-1]
+
     blocks = []
     for proj in projects:
         sblocks = []
@@ -208,16 +233,20 @@ def render_index() -> bytes:
             title = meta.get("title") or "(untitled session)"
             rel_base = f"{s['dir'].parent.name}/{s['dir'].name}"
             lis = "".join(page_li(f"{rel_base}/{p.name}", p) for p in s["pages"])
+            s_open = " open" if s["mtime"] >= threshold else ""
             sblocks.append(
-                '<div class="session"><div class="session__head">'
+                f'<details class="session"{s_open}><summary class="session__head">'
                 f'<span class="session__title">{html.escape(title)}</span> '
                 f'<span class="session__meta">· {fmt_started(meta, s["mtime"])} '
-                f'· {html.escape(short)} · {len(s["pages"])} page(s)</span></div>'
-                f'<ul>{lis}</ul></div>'
+                f'· {html.escape(short)} · {len(s["pages"])} page(s)</span></summary>'
+                f'<ul>{lis}</ul></details>'
             )
+        p_open = " open" if any(s["mtime"] >= threshold for s in proj["sessions"]) else ""
         blocks.append(
-            f'<div class="project"><div class="project__name">{html.escape(proj["name"])}</div>'
-            f'{"".join(sblocks)}</div>'
+            f'<details class="project"{p_open}>'
+            f'<summary class="project__name">{html.escape(proj["name"])} '
+            f'<span class="session__meta">· {len(proj["sessions"])} session(s)</span></summary>'
+            f'{"".join(sblocks)}</details>'
         )
 
     if legacy:
@@ -226,9 +255,9 @@ def render_index() -> bytes:
             for p in legacy
         )
         blocks.append(
-            '<div class="project"><div class="project__name">_legacy '
-            '<span class="session__meta">(ungrouped pages)</span></div>'
-            f'<ul>{lis}</ul></div>'
+            '<details class="project"><summary class="project__name">_legacy '
+            f'<span class="session__meta">· {len(legacy)} ungrouped page(s)</span></summary>'
+            f'<ul>{lis}</ul></details>'
         )
 
     body = (

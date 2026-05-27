@@ -5,6 +5,14 @@
 # Stop event can fire a few ms before the final assistant message is written.
 set -u
 
+# Never recurse. The html-renderer worker is itself a `claude -p` process, so
+# when it finishes its OWN Stop event re-enters this hook — which would render
+# the renderer's session (titled with the subagent prompt) and loop. The
+# dispatcher sets HTML_RENDER_CHILD=1 on the worker so we bail here.
+if [ -n "${HTML_RENDER_CHILD:-}" ]; then
+  exit 0
+fi
+
 INPUT="$(cat)"
 
 # Resolve plugin dir (parent of this script) and load shared path helpers.
@@ -177,7 +185,7 @@ Print exactly one line on success: rendered: $URL"
 # or reach the network, regardless of what untrusted text the transcript holds.
 # Prompt goes via stdin: --allowedTools is variadic and would otherwise
 # swallow a trailing positional prompt as a tool name.
-printf '%s' "$PROMPT" | nohup claude -p \
+printf '%s' "$PROMPT" | HTML_RENDER_CHILD=1 nohup claude -p \
   --permission-mode default \
   --allowedTools "Read Write Edit Glob Grep" \
   >>"$STATE_DIR/.renderer.log" 2>&1 &
