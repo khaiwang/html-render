@@ -1,20 +1,33 @@
 #!/usr/bin/env python3
 """html-render local HTTP server.
 
-Serves ~/.html-render/ on a fixed port (default 7777, override with
-HTML_RENDER_PORT). GET / renders a reverse-chronological index of all
-.html files in the directory, parsing <title> tags for display names.
+Serves the html-render data directory (default $XDG_DATA_HOME/html-render,
+override with HTML_RENDER_DIR) on a fixed port (default 7777, override with
+HTML_RENDER_PORT). GET / renders a project -> session -> page index, reading
+each session's meta.json for display names. Pages live at
+<root>/<project-slug>/<session-uuid>/<timestamp>-<mode>.html.
 """
 
 import html
+import json
 import os
 import re
 import sys
+from datetime import datetime
 from http import HTTPStatus
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
 
-ROOT = Path(os.environ.get("HTML_RENDER_DIR", "~/.html-render")).expanduser()
+
+def data_dir() -> Path:
+    env = os.environ.get("HTML_RENDER_DIR")
+    if env:
+        return Path(env).expanduser()
+    base = os.environ.get("XDG_DATA_HOME") or str(Path.home() / ".local" / "share")
+    return Path(base).expanduser() / "html-render"
+
+
+ROOT = data_dir()
 PORT = int(os.environ.get("HTML_RENDER_PORT", "7777"))
 
 INDEX_CSS = """
@@ -27,17 +40,27 @@ body {
   line-height: 1.55;
 }
 h1 { font-size: 1.25rem; margin-bottom: 0.25rem; }
-.sub { color: #888; font-size: 0.85rem; margin-bottom: 2rem; }
-ul { list-style: none; padding: 0; }
+.sub { color: #888; font-size: 0.85rem; margin-bottom: 2.5rem; }
+.project { margin-bottom: 2.5rem; }
+.project__name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  border-bottom: 1px solid rgba(127,127,127,0.35);
+  padding-bottom: 0.35rem;
+  margin-bottom: 1rem;
+}
+.session { margin: 0 0 1.5rem 0.25rem; }
+.session__head { font-size: 0.85rem; margin-bottom: 0.4rem; }
+.session__title { font-weight: 500; }
+.session__meta { color: #888; }
+ul { list-style: none; padding: 0; margin: 0 0 0 1rem; }
 li {
-  padding: 0.75rem 0;
-  border-bottom: 1px solid rgba(127,127,127,0.18);
+  padding: 0.4rem 0;
   display: grid;
-  grid-template-columns: 9rem 1fr;
+  grid-template-columns: 7rem 1fr;
   gap: 1rem;
   align-items: baseline;
 }
-li:last-child { border-bottom: none; }
 .ts { color: #888; font-size: 0.8rem; }
 a {
   color: inherit;
@@ -85,34 +108,132 @@ def classify_tag(filename: str) -> str:
     return ""
 
 
-def render_index() -> bytes:
-    if not ROOT.exists():
-        ROOT.mkdir(parents=True, exist_ok=True)
+def load_meta(session_dir: Path) -> dict:
+    try:
+        with (session_dir / "meta.json").open() as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
 
-    files = sorted(
-        (p for p in ROOT.glob("*.html") if p.name != "index.html"),
-        key=lambda p: p.stat().st_mtime,
-        reverse=True,
+
+def fmt_time(epoch: float, fmt: str = "%Y-%m-%d %H:%M") -> str:
+    return datetime.fromtimestamp(epoch).strftime(fmt)
+
+
+def fmt_started(meta: dict, fallback: float) -> str:
+    raw = meta.get("started") or ""
+    if raw:
+        try:
+            return (
+                datetime.fromisoformat(raw.replace("Z", "+00:00"))
+                .astimezone()
+                .strftime("%Y-%m-%d %H:%M")
+            )
+        except ValueError:
+            pass
+    return fmt_time(fallback)
+
+
+def page_li(rel_href: str, page: Path) -> str:
+    tag = classify_tag(page.name)
+    tag_html = f'<span class="tag tag-{tag}">{tag}</span>' if tag else ""
+    return (
+        f'<li><span class="ts">{fmt_time(page.stat().st_mtime, "%H:%M")}</span>'
+        f'<span><a href="/{html.escape(rel_href)}">{html.escape(extract_title(page))}</a>'
+        f'{tag_html}</span></li>'
     )
 
-    items = []
-    for p in files:
-        ts = p.stat().st_mtime
-        title = extract_title(p)
-        tag = classify_tag(p.name)
-        tag_html = (
-            f'<span class="tag tag-{tag}">{tag}</span>' if tag else ""
+
+def collect():
+    """Return (projects, legacy_pages), both ordered newest-first.
+
+    Each project: {name, sessions, mtime}. Each session: {dir, pages, meta, mtime}.
+    """
+    projects = []
+    legacy = []
+
+    for proj in sorted(p for p in ROOT.iterdir() if p.is_dir()):
+        if proj.name.startswith("."):
+            continue
+        if proj.name == "_legacy":
+            legacy.extend(
+                sorted(proj.glob("*.html"), key=lambda p: p.stat().st_mtime, reverse=True)
+            )
+            continue
+        sessions = []
+        for sess in proj.iterdir():
+            if not sess.is_dir():
+                continue
+            pages = sorted(
+                sess.glob("*.html"), key=lambda p: p.stat().st_mtime, reverse=True
+            )
+            if not pages:
+                continue
+            sessions.append({
+                "dir": sess,
+                "pages": pages,
+                "meta": load_meta(sess),
+                "mtime": max(p.stat().st_mtime for p in pages),
+            })
+        if not sessions:
+            continue
+        sessions.sort(key=lambda s: s["mtime"], reverse=True)
+        name = next(
+            (s["meta"].get("project_path") for s in sessions if s["meta"].get("project_path")),
+            None,
+        ) or proj.name
+        projects.append({
+            "name": name,
+            "sessions": sessions,
+            "mtime": max(s["mtime"] for s in sessions),
+        })
+
+    # Loose *.html directly under ROOT are treated as legacy too.
+    legacy.extend(p for p in ROOT.glob("*.html") if p.name != "index.html")
+    projects.sort(key=lambda x: x["mtime"], reverse=True)
+    return projects, legacy
+
+
+def render_index() -> bytes:
+    ROOT.mkdir(parents=True, exist_ok=True)
+    projects, legacy = collect()
+    total = sum(len(s["pages"]) for proj in projects for s in proj["sessions"]) + len(legacy)
+
+    blocks = []
+    for proj in projects:
+        sblocks = []
+        for s in proj["sessions"]:
+            meta = s["meta"]
+            short = (meta.get("session_id") or s["dir"].name)[:8]
+            title = meta.get("title") or "(untitled session)"
+            rel_base = f"{s['dir'].parent.name}/{s['dir'].name}"
+            lis = "".join(page_li(f"{rel_base}/{p.name}", p) for p in s["pages"])
+            sblocks.append(
+                '<div class="session"><div class="session__head">'
+                f'<span class="session__title">{html.escape(title)}</span> '
+                f'<span class="session__meta">· {fmt_started(meta, s["mtime"])} '
+                f'· {html.escape(short)} · {len(s["pages"])} page(s)</span></div>'
+                f'<ul>{lis}</ul></div>'
+            )
+        blocks.append(
+            f'<div class="project"><div class="project__name">{html.escape(proj["name"])}</div>'
+            f'{"".join(sblocks)}</div>'
         )
-        from datetime import datetime
-        ts_str = datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M")
-        items.append(
-            f'<li><span class="ts">{ts_str}</span>'
-            f'<span><a href="/{html.escape(p.name)}">{html.escape(title)}</a>{tag_html}</span></li>'
+
+    if legacy:
+        lis = "".join(
+            page_li(f"_legacy/{p.name}" if p.parent.name == "_legacy" else p.name, p)
+            for p in legacy
+        )
+        blocks.append(
+            '<div class="project"><div class="project__name">_legacy '
+            '<span class="session__meta">(ungrouped pages)</span></div>'
+            f'<ul>{lis}</ul></div>'
         )
 
     body = (
-        "<ul>" + "".join(items) + "</ul>"
-        if items
+        "".join(blocks)
+        if blocks
         else '<p class="empty">No pages yet. Trigger a render to populate this list.</p>'
     )
 
@@ -126,7 +247,7 @@ def render_index() -> bytes:
 </head>
 <body>
 <h1>html-render</h1>
-<div class="sub">{html.escape(str(ROOT))} · port {PORT} · {len(files)} page(s)</div>
+<div class="sub">{html.escape(str(ROOT))} · port {PORT} · {total} page(s)</div>
 {body}
 </body>
 </html>"""

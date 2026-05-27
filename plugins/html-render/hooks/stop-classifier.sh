@@ -5,16 +5,19 @@
 set -u
 
 INPUT="$(cat)"
-DIR="${HTML_RENDER_DIR:-$HOME/.html-render}"
-LOG="$DIR/.stop-hook.log"
-mkdir -p "$DIR"
+
+# Resolve plugin dir (parent of this script) and load shared path helpers.
+PLUGIN_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=../lib/session-path.sh
+. "$PLUGIN_DIR/lib/session-path.sh"
+
+STATE_DIR="$(hr_state_dir)"
+LOG="$STATE_DIR/.stop-hook.log"
+mkdir -p "$STATE_DIR"
 
 log() {
   echo "[$(date -Iseconds)] $*" >>"$LOG"
 }
-
-# Resolve plugin dir (parent of this script).
-PLUGIN_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
 TRANSCRIPT="$(printf '%s' "$INPUT" | python3 -c "
 import json, sys
@@ -104,18 +107,18 @@ if ! command -v claude >/dev/null 2>&1; then
 fi
 
 # Ensure server is up (idempotent).
-bash "$PLUGIN_DIR/server/start.sh" >>"$DIR/.server.log" 2>&1 || true
+bash "$PLUGIN_DIR/server/start.sh" >>"$STATE_DIR/.server.log" 2>&1 || true
 
-SLUG="$(date -u +%Y%m%dT%H%M%SZ)-$MODE"
-OUT="$DIR/$SLUG.html"
 PORT="${HTML_RENDER_PORT:-7777}"
+# Output lands in this session's directory; URL carries the project/session path.
+IFS=$'\t' read -r OUT URL < <(hr_new_output "$TRANSCRIPT" "$MODE" "$PORT")
 
 # For diff mode, pre-compute the diff HERE so the renderer never needs a
 # shell. The renderer runs confined to read/write tools (see --allowedTools
 # below), so it cannot run git — or anything else — itself.
 SOURCE_LINE="Source: the Claude Code transcript at $TRANSCRIPT (read the last assistant turn)."
 if [ "$MODE" = "diff" ]; then
-  DIFF_FILE="$DIR/$SLUG.diff"
+  DIFF_FILE="${OUT%.html}.diff"
   {
     echo "=== git diff --stat HEAD ==="
     git diff --stat HEAD
@@ -140,7 +143,7 @@ Plugin dir: $PLUGIN_DIR
 The server is already running; you do not need to start it.
 You have ONLY Read and Write tools — generate the HTML, write it to the output path, and print the URL.
 
-Print exactly one line on success: rendered: http://localhost:$PORT/$(basename "$OUT")"
+Print exactly one line on success: rendered: $URL"
 
 # Detach fully — never block the session. Confine the renderer to read/write
 # tools in default permission mode, so even if the parent session runs in
@@ -151,9 +154,9 @@ Print exactly one line on success: rendered: http://localhost:$PORT/$(basename "
 printf '%s' "$PROMPT" | nohup claude -p \
   --permission-mode default \
   --allowedTools "Read Write Edit Glob Grep" \
-  >>"$DIR/.renderer.log" 2>&1 &
+  >>"$STATE_DIR/.renderer.log" 2>&1 &
 RENDERER_PID=$!
 disown 2>/dev/null || true
 
-log "  → dispatched renderer pid=$RENDERER_PID out=$SLUG.html"
+log "  → dispatched renderer pid=$RENDERER_PID out=$OUT"
 exit 0

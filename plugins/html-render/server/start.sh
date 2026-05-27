@@ -2,12 +2,31 @@
 # Idempotent start: only launch if not already bound to the port.
 set -u
 
-PORT="${HTML_RENDER_PORT:-7777}"
-DIR="${HTML_RENDER_DIR:-$HOME/.html-render}"
-PID_FILE="$DIR/.server.pid"
-LOG_FILE="$DIR/.server.log"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=../lib/session-path.sh
+. "$SCRIPT_DIR/../lib/session-path.sh"
 
-mkdir -p "$DIR"
+PORT="${HTML_RENDER_PORT:-7777}"
+DATA_DIR="$(hr_data_dir)"
+STATE_DIR="$(hr_state_dir)"
+PID_FILE="$STATE_DIR/.server.pid"
+LOG_FILE="$STATE_DIR/.server.log"
+
+mkdir -p "$DATA_DIR" "$STATE_DIR"
+
+# One-time migration: sweep any flat pages from the old default location
+# (~/.html-render) into a _legacy group so existing history isn't orphaned.
+LEGACY_OLD="$HOME/.html-render"
+if [ "$LEGACY_OLD" != "$DATA_DIR" ] && [ -d "$LEGACY_OLD" ]; then
+  shopt -s nullglob
+  old_pages=("$LEGACY_OLD"/*.html)
+  shopt -u nullglob
+  if [ "${#old_pages[@]}" -gt 0 ]; then
+    mkdir -p "$DATA_DIR/_legacy"
+    mv "${old_pages[@]}" "$DATA_DIR/_legacy/" 2>/dev/null || true
+    echo "[html-render] migrated ${#old_pages[@]} legacy page(s) to $DATA_DIR/_legacy"
+  fi
+fi
 
 if [ -f "$PID_FILE" ]; then
   pid=$(cat "$PID_FILE" 2>/dev/null || echo "")
@@ -23,7 +42,6 @@ if command -v lsof >/dev/null 2>&1 && lsof -iTCP:"$PORT" -sTCP:LISTEN >/dev/null
   exit 1
 fi
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 nohup python3 "$SCRIPT_DIR/server.py" >>"$LOG_FILE" 2>&1 &
 echo $! >"$PID_FILE"
 disown 2>/dev/null || true

@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -u
-DIR="${HTML_RENDER_DIR:-$HOME/.html-render}"
-PID_FILE="$DIR/.server.pid"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=../lib/session-path.sh
+. "$SCRIPT_DIR/../lib/session-path.sh"
+PID_FILE="$(hr_state_dir)/.server.pid"
 if [ ! -f "$PID_FILE" ]; then
   echo "[html-render] no pid file at $PID_FILE; nothing to stop"
   exit 0
