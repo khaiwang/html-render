@@ -135,11 +135,6 @@ if [ "$MODE" = "skip" ] || [ -z "$MODE" ]; then
   exit 0
 fi
 
-if ! command -v claude >/dev/null 2>&1; then
-  log "  → 'claude' CLI not on PATH; cannot dispatch"
-  exit 0
-fi
-
 # Ensure server is up (idempotent).
 bash "$PLUGIN_DIR/server/start.sh" >>"$STATE_DIR/.server.log" 2>&1 || true
 
@@ -147,29 +142,32 @@ PORT="${HTML_RENDER_PORT:-7777}"
 # Output lands in this session's directory; URL carries the project/session path.
 IFS=$'\t' read -r OUT URL < <(hr_new_output "$TRANSCRIPT" "$MODE" "$PORT")
 
-# For diff mode, pre-compute the diff HERE so the renderer never needs a
-# shell. The renderer runs confined to read/write tools (see --allowedTools
-# below), so it cannot run git — or anything else — itself.
-SOURCE_LINE="Source: the Claude Code transcript at $TRANSCRIPT (read the last assistant turn)."
 if [ "$MODE" = "diff" ]; then
+  # Render diffs DETERMINISTICALLY in Python — no LLM. Always aligned and
+  # readable (one scrollable code block per file, not per-line cells).
   DIFF_FILE="${OUT%.html}.diff"
   {
-    echo "=== git diff --stat HEAD ==="
-    git diff --stat HEAD
-    echo "=== git diff (unstaged working tree) ==="
-    git diff
-    echo "=== git diff --cached (staged) ==="
-    git diff --cached
+    echo "=== git diff --stat HEAD ==="; git diff --stat HEAD
+    echo "=== git diff (unstaged working tree) ==="; git diff
+    echo "=== git diff --cached (staged) ==="; git diff --cached
   } >"$DIFF_FILE" 2>/dev/null || true
-  SOURCE_LINE="Source: a pre-computed git diff at $DIFF_FILE — just Read it. Do NOT run git or any shell command."
+  python3 "$PLUGIN_DIR/lib/render_diff.py" \
+    --diff "$DIFF_FILE" --out "$OUT" --url "$URL" --transcript "$TRANSCRIPT" \
+    >>"$STATE_DIR/.renderer.log" 2>&1
+  log "  → rendered diff (deterministic) out=$OUT"
+  exit 0
 fi
 
-# Compose the prompt for the background renderer. The agent file
-# location is read from this plugin so users don't need any extra wiring.
+# Narrative mode: dispatch the confined LLM renderer in the background.
+if ! command -v claude >/dev/null 2>&1; then
+  log "  → 'claude' CLI not on PATH; cannot dispatch narrative renderer"
+  exit 0
+fi
+
 PROMPT="You are the html-renderer subagent. Read the instructions at $PLUGIN_DIR/agents/html-renderer.md.
 
-$SOURCE_LINE
-Mode: $MODE
+Source: the Claude Code transcript at $TRANSCRIPT (read the last assistant turn).
+Mode: narrative
 Output: $OUT
 Server port: $PORT
 Plugin dir: $PLUGIN_DIR
@@ -192,5 +190,5 @@ printf '%s' "$PROMPT" | HTML_RENDER_CHILD=1 nohup claude -p \
 RENDERER_PID=$!
 disown 2>/dev/null || true
 
-log "  → dispatched renderer pid=$RENDERER_PID out=$OUT"
+log "  → dispatched narrative renderer pid=$RENDERER_PID out=$OUT"
 exit 0
