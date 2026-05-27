@@ -29,9 +29,21 @@ def data_dir() -> Path:
 
 ROOT = data_dir()
 PORT = int(os.environ.get("HTML_RENDER_PORT", "7777"))
-# Sessions holding the N most-recent renders stay expanded by default; older
-# ones (and the legacy group) auto-collapse. Override with HTML_RENDER_RECENT.
+# How many of a session's newest renders to show before collapsing the rest
+# behind a "N older render(s)" expander. Override with HTML_RENDER_RECENT.
 RECENT_LIMIT = max(1, int(os.environ.get("HTML_RENDER_RECENT", "3")))
+
+
+def _default_title():
+    try:
+        import getpass
+        return f"{getpass.getuser()}'s Claude sessions"
+    except Exception:
+        return "Claude sessions"
+
+
+# Home-page heading/title. Override with HTML_RENDER_TITLE.
+HOME_TITLE = os.environ.get("HTML_RENDER_TITLE") or _default_title()
 
 INDEX_CSS = """
 :root { color-scheme: light dark; }
@@ -91,6 +103,8 @@ details.session > summary { margin-bottom: 0; }
 details.project { margin-bottom: 2rem; }
 details.project > summary.project__name { margin-bottom: 1rem; }
 details.session:not([open]) > summary .session__title { color: #888; font-weight: 400; }
+details.more { margin: 0.25rem 0 0.4rem 1rem; }
+details.more > summary { color: #888; font-size: 0.78rem; }
 """
 
 TITLE_RE = re.compile(r"<title>(.*?)</title>", re.IGNORECASE | re.DOTALL)
@@ -210,38 +224,39 @@ def render_index() -> bytes:
     projects, legacy = collect()
     total = sum(len(s["pages"]) for proj in projects for s in proj["sessions"]) + len(legacy)
 
-    # Auto-collapse: keep open only sessions whose newest page is among the
-    # RECENT_LIMIT most-recent renders overall. Everything else starts closed
-    # (click any summary to toggle).
-    page_mtimes = sorted(
-        (p.stat().st_mtime for proj in projects for s in proj["sessions"] for p in s["pages"]),
-        reverse=True,
-    )
-    if not page_mtimes:
-        threshold = 0.0
-    elif len(page_mtimes) >= RECENT_LIMIT:
-        threshold = page_mtimes[RECENT_LIMIT - 1]
-    else:
-        threshold = page_mtimes[-1]
+    # Tidy default view:
+    #  - within each session, show the RECENT_LIMIT newest renders; older ones
+    #    collapse behind a "N older render(s)" expander;
+    #  - open only the newest session in each project, and only the newest
+    #    project. Everything else starts collapsed (click any summary to open).
+    newest_global = max(
+        (s["mtime"] for proj in projects for s in proj["sessions"]), default=0.0)
 
     blocks = []
     for proj in projects:
         sblocks = []
+        proj_newest = max((s["mtime"] for s in proj["sessions"]), default=0.0)
         for s in proj["sessions"]:
             meta = s["meta"]
             short = (meta.get("session_id") or s["dir"].name)[:8]
             title = meta.get("title") or "(untitled session)"
             rel_base = f"{s['dir'].parent.name}/{s['dir'].name}"
-            lis = "".join(page_li(f"{rel_base}/{p.name}", p) for p in s["pages"])
-            s_open = " open" if s["mtime"] >= threshold else ""
+            visible, rest = s["pages"][:RECENT_LIMIT], s["pages"][RECENT_LIMIT:]
+            lis = "".join(page_li(f"{rel_base}/{p.name}", p) for p in visible)
+            more = ""
+            if rest:
+                more_lis = "".join(page_li(f"{rel_base}/{p.name}", p) for p in rest)
+                more = (f'<details class="more"><summary>{len(rest)} older render(s)'
+                        f'</summary><ul>{more_lis}</ul></details>')
+            s_open = " open" if s["mtime"] == proj_newest else ""
             sblocks.append(
                 f'<details class="session"{s_open}><summary class="session__head">'
                 f'<span class="session__title">{html.escape(title)}</span> '
                 f'<span class="session__meta">· {fmt_started(meta, s["mtime"])} '
-                f'· {html.escape(short)} · {len(s["pages"])} page(s)</span></summary>'
-                f'<ul>{lis}</ul></details>'
+                f'· {html.escape(short)} · {len(s["pages"])} render(s)</span></summary>'
+                f'<ul>{lis}</ul>{more}</details>'
             )
-        p_open = " open" if any(s["mtime"] >= threshold for s in proj["sessions"]) else ""
+        p_open = " open" if proj_newest == newest_global else ""
         blocks.append(
             f'<details class="project"{p_open}>'
             f'<summary class="project__name">{html.escape(proj["name"])} '
@@ -271,12 +286,12 @@ def render_index() -> bytes:
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>html-render</title>
+<title>{html.escape(HOME_TITLE)}</title>
 <style>{INDEX_CSS}</style>
 </head>
 <body>
-<h1>html-render</h1>
-<div class="sub">{html.escape(str(ROOT))} · port {PORT} · {total} page(s)</div>
+<h1>{html.escape(HOME_TITLE)}</h1>
+<div class="sub">{html.escape(str(ROOT))} · port {PORT} · {total} render(s)</div>
 {body}
 </body>
 </html>"""
