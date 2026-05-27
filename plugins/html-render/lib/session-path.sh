@@ -4,7 +4,9 @@
 # Source it to use the hr_* functions, or run it directly:
 #   session-path.sh <transcript>            -> prints that session's dir
 #   session-path.sh --new <transcript> <mode> <port>
-#                                           -> prints OUT=<abs> and URL=<url>
+#                       -> prints OUT=<abs>, URL=<url>, TRANSCRIPT=<resolved>
+# Pass "" as <transcript> and the current session's transcript is resolved
+# from $CLAUDE_CODE_SESSION_ID (slash commands don't get a transcript path).
 #
 # Storage model (XDG):
 #   pages (durable history)  -> $HTML_RENDER_DIR or $XDG_DATA_HOME/html-render
@@ -25,6 +27,25 @@ hr_data_dir() {
 
 hr_state_dir() {
   printf '%s' "$(hr_data_dir)/.state"
+}
+
+# hr_resolve_transcript [maybe-path] -> a usable transcript path.
+# Slash commands do NOT get $CLAUDE_TRANSCRIPT_PATH (only the Stop hook does,
+# via stdin), so when handed an empty/invalid path we locate the current
+# session's transcript via $CLAUDE_CODE_SESSION_ID, then fall back to the most
+# recently modified transcript.
+hr_resolve_transcript() {
+  local given="${1:-}" base="$HOME/.claude/projects" sid f
+  if [ -n "$given" ] && [ -f "$given" ]; then
+    printf '%s' "$given"; return 0
+  fi
+  sid="${CLAUDE_CODE_SESSION_ID:-}"
+  if [ -n "$sid" ]; then
+    f="$(find "$base" -maxdepth 2 -name "$sid.jsonl" -print 2>/dev/null | head -1)"
+    if [ -n "$f" ]; then printf '%s' "$f"; return 0; fi
+  fi
+  find "$base" -maxdepth 2 -name '*.jsonl' -printf '%T@\t%p\n' 2>/dev/null \
+    | sort -rn | head -1 | cut -f2- | tr -d '\n'
 }
 
 # hr_write_meta <transcript> <session> <project>  -> meta.json on stdout
@@ -84,7 +105,8 @@ PY
 
 # hr_session_dir <transcript>  -> creates + prints the session directory
 hr_session_dir() {
-  local transcript="$1" data session project sdir
+  local transcript data session project sdir
+  transcript="$(hr_resolve_transcript "${1:-}")"
   data="$(hr_data_dir)"
   session="$(basename "$transcript" .jsonl)"
   project="$(basename "$(dirname "$transcript")")"
@@ -98,15 +120,16 @@ hr_session_dir() {
   printf '%s' "$sdir"
 }
 
-# hr_new_output <transcript> <mode> <port>  -> "<abs_out>\t<url>"
+# hr_new_output <transcript> <mode> <port>  -> "<abs_out>\t<url>\t<transcript>"
 hr_new_output() {
-  local transcript="$1" mode="$2" port="$3" sdir slug out data rel
+  local transcript mode="$2" port="$3" sdir slug out data rel
+  transcript="$(hr_resolve_transcript "${1:-}")"
   sdir="$(hr_session_dir "$transcript")"
   slug="$(date -u +%Y%m%dT%H%M%SZ)-$mode"
   out="$sdir/$slug.html"
   data="$(hr_data_dir)"
   rel="${out#"$data"/}"
-  printf '%s\t%s' "$out" "http://localhost:$port/$rel"
+  printf '%s\t%s\t%s' "$out" "http://localhost:$port/$rel" "$transcript"
 }
 
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then
@@ -114,8 +137,9 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
     --new)
       shift
       [ $# -ge 2 ] || { echo "usage: session-path.sh --new <transcript> <mode> [port]" >&2; exit 2; }
-      ou="$(hr_new_output "$1" "$2" "${3:-7777}")"
-      printf 'OUT=%s\nURL=%s\n' "${ou%%$'\t'*}" "${ou#*$'\t'}"
+      ou="$(hr_new_output "${1:-}" "$2" "${3:-7777}")"
+      IFS=$'\t' read -r _o _u _t <<<"$ou"
+      printf 'OUT=%s\nURL=%s\nTRANSCRIPT=%s\n' "$_o" "$_u" "$_t"
       ;;
     "")
       echo "usage: session-path.sh <transcript> | --new <transcript> <mode> [port]" >&2

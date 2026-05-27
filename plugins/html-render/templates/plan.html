@@ -171,6 +171,17 @@
   }
   tr:nth-child(even) td { background: var(--surface-dim); }
   a { color: var(--accent); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  .prompt {
+    margin: 1rem 0 0;
+    padding: 0.6rem 0.9rem;
+    border-left: 3px solid var(--accent, #888);
+    background: var(--surface-dim, rgba(127,127,127,0.08));
+    color: var(--text-dim, #888);
+    font-size: 0.85rem;
+    line-height: 1.5;
+    border-radius: 0 4px 4px 0;
+  }
+  .prompt b { color: var(--text, inherit); font-weight: 600; margin-right: 0.4rem; }
 </style>
 </head>
 <body>
@@ -179,6 +190,7 @@
     <h1>{{TITLE}}</h1>
     <div class="subtitle">{{SUBTITLE}}</div>
     <div class="meta">{{TIMESTAMP}}</div>
+    {{PROMPT}}
   </header>
 
   <section class="card hero">

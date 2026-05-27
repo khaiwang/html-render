@@ -72,12 +72,13 @@ Then, regardless of source:
 
 ### narrative mode
 
-1. Read the transcript file. Locate the most recent assistant message (find the last `"role": "assistant"` entry, or the largest contiguous run of assistant content if the JSONL groups by turn).
+1. Read the transcript file. Locate the most recent assistant message (the last `"role": "assistant"` run). Render THAT — never your own instructions. Also find the **eliciting user prompt**: the last *genuine human* message before that assistant turn. Claude Code records tool results as `role: "user"` too, so skip any message whose content is a `tool_result`; you want the human's actual words.
 2. Identify document structure: H2/H3 headings, numbered lists, code blocks, tables.
 3. Pick a template:
    - `templates/plan.html` for plans, designs, implementation guides, recaps
    - `templates/review.html` for reviews, audits, code analyses (use Good/Bad/Ugly/Question card variants)
 4. Map the source content to sections:
+   - `{{PROMPT}}` → the eliciting user prompt from step 1, as `<div class="prompt"><b>Prompt</b>ESCAPED_TEXT</div>`: HTML-escape it, collapse to one line, and truncate to ~280 chars with `…` if longer. If you genuinely cannot find a human prompt, replace `{{PROMPT}}` with an empty string. NEVER put your own subagent prompt ("You are the html-renderer…") here or anywhere — that is not content.
    - First paragraph → `{{HERO}}` (the executive summary)
    - Each H2/H3 → one `<section class="card">` with the heading text as `card__title`
    - The heading itself becomes an uppercased mono label (`card__label`)
