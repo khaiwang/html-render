@@ -47,11 +47,25 @@ except Exception:
 def role_of(e):
     return e.get('role') or (e.get('message') or {}).get('role')
 
-# Find last user-message boundary.
+def is_human(e):
+    # A genuine human turn. Claude Code records tool results as role
+    # 'user' too, so we must exclude those — otherwise the "last user
+    # message" boundary lands on the final tool result and we only see
+    # the assistant text after the last tool call, not the whole turn.
+    if role_of(e) != 'user' or e.get('isMeta'):
+        return False
+    content = (e.get('message') or e).get('content')
+    if isinstance(content, str):
+        return True
+    if isinstance(content, list):
+        types = {c.get('type') for c in content if isinstance(c, dict)}
+        return 'tool_result' not in types
+    return False
+
+# Everything after the last genuine human message is this turn.
 last_user = -1
 for i in range(len(events) - 1, -1, -1):
-    e = events[i]
-    if role_of(e) == 'user' and not e.get('isMeta'):
+    if is_human(events[i]):
         last_user = i
         break
 since = events[last_user + 1:] if last_user >= 0 else events
@@ -82,13 +96,12 @@ if len(text) < 200:
 if any(t in ('Edit', 'Write', 'NotebookEdit', 'MultiEdit') for t in tool_calls):
     print('diff'); sys.exit(0)
 
-headers = re.findall(
-    r'^\s*#{1,3}\s+(plan|summary|review|recap|architecture|design|implementation|analysis)',
-    text, re.IGNORECASE | re.MULTILINE)
-numbered = len(re.findall(r'^\s*\d+\.\s', text, re.MULTILINE))
+# Structural signals that a turn is substantial enough to render.
+headings = len(re.findall(r'^\s*#{1,3}\s+\S', text, re.MULTILINE))
+list_items = len(re.findall(r'^\s*(?:\d+\.|[-*])\s', text, re.MULTILINE))
 fences = text.count('```') // 2
 
-if headers or numbered >= 5 or fences >= 3:
+if len(text) >= 1500 or headings >= 2 or list_items >= 5 or fences >= 3:
     print('narrative'); sys.exit(0)
 
 print('skip')
