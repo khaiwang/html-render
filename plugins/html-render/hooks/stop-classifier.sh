@@ -143,18 +143,19 @@ PORT="${HTML_RENDER_PORT:-7777}"
 IFS=$'\t' read -r OUT URL < <(hr_new_output "$TRANSCRIPT" "$MODE" "$PORT")
 
 if [ "$MODE" = "diff" ]; then
-  # Render diffs DETERMINISTICALLY in Python — no LLM. Always aligned and
-  # readable (one scrollable code block per file, not per-line cells).
+  # Diff layout is rendered DETERMINISTICALLY in Python (always aligned, one
+  # scrollable block per file). diff-explain.sh renders it immediately, then
+  # adds the per-hunk explanation column in the background via a confined LLM.
   DIFF_FILE="${OUT%.html}.diff"
   {
     echo "=== git diff --stat HEAD ==="; git diff --stat HEAD
     echo "=== git diff (unstaged working tree) ==="; git diff
     echo "=== git diff --cached (staged) ==="; git diff --cached
   } >"$DIFF_FILE" 2>/dev/null || true
-  python3 "$PLUGIN_DIR/lib/render_diff.py" \
-    --diff "$DIFF_FILE" --out "$OUT" --url "$URL" --transcript "$TRANSCRIPT" \
+  bash "$PLUGIN_DIR/lib/diff-explain.sh" \
+    "$PLUGIN_DIR" "$DIFF_FILE" "$OUT" "$URL" "$TRANSCRIPT" \
     >>"$STATE_DIR/.renderer.log" 2>&1
-  log "  → rendered diff (deterministic) out=$OUT"
+  log "  → rendered diff (deterministic; explanations in background) out=$OUT"
   exit 0
 fi
 

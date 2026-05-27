@@ -1,14 +1,20 @@
 #!/usr/bin/env python3
-"""Deterministic git-diff -> HTML renderer (side-by-side).
+"""Deterministic git-diff -> HTML renderer (side-by-side, optional explanations).
 
 Renders a unified diff as a clean two-column side-by-side table
 (before | after): one continuous, single-scroll block per file with
-line-number gutters and +/- coloring. No LLM, so it's always aligned and
-readable — no per-line cells/scrollbars.
+line-number gutters and +/- coloring. No LLM in the layout, so it's always
+aligned — no per-line cells/scrollbars.
+
+If --explanations is given (a JSON array of strings, one per hunk in order,
+typically produced by the LLM), a third column is added: each explanation
+spans its hunk's rows via a deterministic rowspan (Python computes it, so it
+can't misalign).
 
 Usage:
   render_diff.py --out FILE.html --url URL [--diff DIFF_FILE | --git REF]
                  [--transcript T.jsonl] [--repo DIR] [--title T]
+                 [--explanations EXPL_FILE]
 """
 import argparse
 import html
@@ -43,14 +49,11 @@ def read_diff(args):
 
 
 def parse(diff_text):
-    """-> list of files: {path, adds, dels, hunks:[{header, rows}]}.
-
-    rows: (kind, old_no, new_no, text)  kind in {ctx, add, del}.
-    """
+    """-> list of files: {path, adds, dels, hunks:[{header, rows}]}."""
     files, cur, hunk = [], None, None
     old_n = new_n = 0
     for line in diff_text.splitlines():
-        if line.startswith("=== "):  # section markers from the hook's .diff
+        if line.startswith("=== "):
             continue
         if line.startswith("diff --git"):
             m = re.search(r" b/(.+)$", line)
@@ -83,12 +86,7 @@ def parse(diff_text):
 
 
 def side_by_side(rows):
-    """Pair a hunk's rows into side-by-side (left, right) display rows.
-
-    left/right are (lineno, text, css) or None for a blank cell.
-    Consecutive deletions/additions are zipped (deletion i ↔ addition i) so a
-    modified block shows old on the left, new on the right.
-    """
+    """Pair a hunk's rows into side-by-side (left, right) display rows."""
     out, dels, adds = [], [], []
 
     def flush():
@@ -110,13 +108,31 @@ def side_by_side(rows):
     return out
 
 
+def load_explanations(path):
+    if not path or not os.path.isfile(path):
+        return []
+    try:
+        raw = open(path, encoding="utf-8", errors="replace").read()
+    except Exception:
+        return []
+    i, j = raw.find("["), raw.rfind("]")
+    if i == -1 or j == -1 or j < i:
+        return []
+    try:
+        data = json.loads(raw[i:j + 1])
+    except Exception:
+        return []
+    return [str(x) for x in data] if isinstance(data, list) else []
+
+
 CSS = """
 :root { color-scheme: light dark; --add-bg:rgba(63,185,80,.16); --del-bg:rgba(248,81,73,.16);
   --add-gut:#2ea043; --del-gut:#cf222e; --border:rgba(127,127,127,.25); --dim:#888;
-  --blank:rgba(127,127,127,.05); }
+  --blank:rgba(127,127,127,.05); --why-bg:rgba(101,116,205,.08);
+  --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif; }
 * { box-sizing: border-box; }
 body { font-family: ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
-  max-width: 1280px; margin: 2rem auto; padding: 0 1.25rem; line-height: 1.5; }
+  max-width: 1400px; margin: 2rem auto; padding: 0 1.25rem; line-height: 1.5; }
 h1 { font-size: 1.2rem; margin: 0 0 .25rem; }
 .meta { color: var(--dim); font-size: .82rem; margin-bottom: .5rem; }
 .prompt { margin: .75rem 0 1.5rem; padding: .55rem .85rem; border-left: 3px solid var(--dim);
@@ -128,18 +144,21 @@ h1 { font-size: 1.2rem; margin: 0 0 .25rem; }
   font-size: .85rem; font-weight: 600; }
 .file__stat { font-weight: 400; font-size: .78rem; }
 .file__stat .a { color: var(--add-gut); } .file__stat .d { color: var(--del-gut); }
-.scroll { overflow-x: auto; }                 /* ONE scrollbar for the whole file */
+.scroll { overflow-x: auto; }
 table.diff { border-collapse: collapse; width: 100%; font-size: 12.5px; table-layout: fixed; }
 table.diff td { padding: 0 .3rem; vertical-align: top; }
-td.ln { width: 3rem; text-align: right; color: var(--dim); user-select: none;
-  white-space: nowrap; padding: 0 .5rem; }
-td.code { white-space: pre; width: 50%; overflow-wrap: anywhere; padding-left: .4rem; }
+td.ln { text-align: right; color: var(--dim); user-select: none; white-space: nowrap; padding: 0 .5rem; }
+td.code { white-space: pre; overflow-wrap: anywhere; padding-left: .4rem; }
+table.diff.with-why td.code { white-space: pre-wrap; }   /* wrap so the why column stays visible */
 td.code.del { background: var(--del-bg); } td.ln.del { background: var(--del-bg); }
 td.code.add { background: var(--add-bg); } td.ln.add { background: var(--add-bg); }
 td.code.blank, td.ln.blank { background: var(--blank); }
 td.code.del::before { content:"- "; color: var(--del-gut); }
 td.code.add::before { content:"+ "; color: var(--add-gut); }
 td.ln.new, td.code.new-side { border-left: 1px solid var(--border); }
+td.why { white-space: normal; font-family: var(--sans); font-size: 12px; line-height: 1.45;
+  color: var(--dim); background: var(--why-bg); border-left: 2px solid var(--border);
+  padding: .35rem .7rem; vertical-align: top; }
 tr.hunk td { background: rgba(127,127,127,.06); color: var(--dim); font-size: .75rem;
   padding: .25rem .8rem; border-top: 1px solid var(--border); }
 .empty { color: var(--dim); font-style: italic; }
@@ -150,8 +169,7 @@ def esc(s):
     return html.escape(s, quote=False)
 
 
-def cell(side, item, new_side):
-    """Render the (line-number, code) pair of cells for one side."""
+def cell(item, new_side):
     ln_extra = " new" if new_side else ""
     code_extra = " new-side" if new_side else ""
     if item is None:
@@ -162,7 +180,9 @@ def cell(side, item, new_side):
             f'<td class="code {css}{code_extra}">{esc(text)}</td>')
 
 
-def render(files, title, url, prompt_text):
+def render(files, title, url, prompt_text, explanations):
+    has_why = bool(explanations)
+    ncols = 5 if has_why else 4
     total_a = sum(f["adds"] for f in files)
     total_d = sum(f["dels"] for f in files)
     out = [f'<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">'
@@ -177,18 +197,34 @@ def render(files, title, url, prompt_text):
         out.append(f'<div class="prompt"><b>Prompt</b>{esc(prompt_text)}</div>')
     if not files:
         out.append('<p class="empty">No changes to show.</p>')
+
+    if has_why:
+        cols = ('<colgroup><col style="width:4%"><col style="width:31%">'
+                '<col style="width:4%"><col style="width:31%">'
+                '<col style="width:30%"></colgroup>')
+    else:
+        cols = ('<colgroup><col style="width:5%"><col style="width:45%">'
+                '<col style="width:5%"><col style="width:45%"></colgroup>')
+
+    hunk_idx = 0
     for f in files:
+        cls = "diff with-why" if has_why else "diff"
         out.append('<div class="file"><div class="file__head">'
                    f'<span>{esc(f["path"])}</span>'
                    f'<span class="file__stat"><span class="a">+{f["adds"]}</span> '
                    f'<span class="d">−{f["dels"]}</span></span></div>'
-                   '<div class="scroll"><table class="diff"><tbody>')
+                   f'<div class="scroll"><table class="{cls}">{cols}<tbody>')
         for h in f["hunks"]:
             hdr = f"@@ {esc(h['header'])}" if h["header"] else "@@"
-            out.append(f'<tr class="hunk"><td colspan="4">{hdr}</td></tr>')
-            for left, right in side_by_side(h["rows"]):
-                out.append("<tr>" + cell("L", left, False)
-                           + cell("R", right, True) + "</tr>")
+            out.append(f'<tr class="hunk"><td colspan="{ncols}">{hdr}</td></tr>')
+            rows = side_by_side(h["rows"])
+            expl = explanations[hunk_idx] if hunk_idx < len(explanations) else ""
+            hunk_idx += 1
+            for r_i, (left, right) in enumerate(rows):
+                cells = cell(left, False) + cell(right, True)
+                if has_why and r_i == 0:
+                    cells += f'<td class="why" rowspan="{len(rows)}">{esc(expl)}</td>'
+                out.append("<tr>" + cells + "</tr>")
         out.append("</tbody></table></div></div>")
     out.append("</body></html>")
     return "\n".join(out)
@@ -228,6 +264,7 @@ def main():
     ap.add_argument("--repo")
     ap.add_argument("--transcript")
     ap.add_argument("--title")
+    ap.add_argument("--explanations")
     a = ap.parse_args()
 
     files = parse(read_diff(a))
@@ -240,7 +277,8 @@ def main():
     else:
         title = "diff — no changes"
 
-    out_html = render(files, title, a.url, eliciting_prompt(a.transcript))
+    out_html = render(files, title, a.url, eliciting_prompt(a.transcript),
+                      load_explanations(a.explanations))
     os.makedirs(os.path.dirname(a.out), exist_ok=True)
     with open(a.out, "w", encoding="utf-8") as f:
         f.write(out_html)

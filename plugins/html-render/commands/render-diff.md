@@ -10,7 +10,9 @@ Steps:
 3. Compute the output path and URL:
    `bash <plugin-dir>/lib/session-path.sh --new "$CLAUDE_TRANSCRIPT_PATH" diff "${HTML_RENDER_PORT:-7777}"`
    It prints `OUT=`, `URL=`, and `TRANSCRIPT=`. (`$CLAUDE_TRANSCRIPT_PATH` is normally empty for commands; the helper resolves the session from `$CLAUDE_CODE_SESSION_ID` so the file lands in the right session folder.)
-4. Render the diff deterministically — no subagent, the Python renderer parses the diff and writes aligned HTML:
-   `python3 <plugin-dir>/lib/render_diff.py --git "${ARGUMENTS:-working}" --out "<OUT>" --url "<URL>" --transcript "<TRANSCRIPT>"`
-   Run it from the repo you want diffed (its cwd is the git repo).
-5. Report only the `URL` to the user.
+4. From the repo you want diffed, snapshot the diff next to the output file:
+   `{ git diff ${ARGUMENTS:-}; git diff --cached; } > "<OUT with .html replaced by .diff>"`
+5. Render it (deterministic layout) and add the explanation column in the background:
+   `bash <plugin-dir>/lib/diff-explain.sh "<plugin-dir>" "<DIFF_FILE>" "<OUT>" "<URL>" "<TRANSCRIPT>"`
+   This writes the side-by-side diff immediately, then a capable explorer agent (Read/Grep/Glob + git) fills the per-hunk explanation column and re-renders. It prints `rendered: <URL>` once the first render is done.
+6. Report only the `URL` to the user.
