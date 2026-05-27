@@ -110,23 +110,48 @@ SLUG="$(date -u +%Y%m%dT%H%M%SZ)-$MODE"
 OUT="$DIR/$SLUG.html"
 PORT="${HTML_RENDER_PORT:-7777}"
 
+# For diff mode, pre-compute the diff HERE so the renderer never needs a
+# shell. The renderer runs confined to read/write tools (see --allowedTools
+# below), so it cannot run git — or anything else — itself.
+SOURCE_LINE="Source: the Claude Code transcript at $TRANSCRIPT (read the last assistant turn)."
+if [ "$MODE" = "diff" ]; then
+  DIFF_FILE="$DIR/$SLUG.diff"
+  {
+    echo "=== git diff --stat HEAD ==="
+    git diff --stat HEAD
+    echo "=== git diff (unstaged working tree) ==="
+    git diff
+    echo "=== git diff --cached (staged) ==="
+    git diff --cached
+  } >"$DIFF_FILE" 2>/dev/null || true
+  SOURCE_LINE="Source: a pre-computed git diff at $DIFF_FILE — just Read it. Do NOT run git or any shell command."
+fi
+
 # Compose the prompt for the background renderer. The agent file
 # location is read from this plugin so users don't need any extra wiring.
 PROMPT="You are the html-renderer subagent. Read the instructions at $PLUGIN_DIR/agents/html-renderer.md.
 
-Source: transcript at $TRANSCRIPT
+$SOURCE_LINE
 Mode: $MODE
 Output: $OUT
 Server port: $PORT
 Plugin dir: $PLUGIN_DIR
 
-For mode 'diff': run git diff against the working tree to capture what changed in this session.
-For mode 'narrative': read the last assistant turn from the transcript.
+The server is already running; you do not need to start it.
+You have ONLY Read and Write tools — generate the HTML, write it to the output path, and print the URL.
 
 Print exactly one line on success: rendered: http://localhost:$PORT/$(basename "$OUT")"
 
-# Detach fully — never block the session.
-nohup claude -p "$PROMPT" >>"$DIR/.renderer.log" 2>&1 &
+# Detach fully — never block the session. Confine the renderer to read/write
+# tools in default permission mode, so even if the parent session runs in
+# bypass mode this unattended background agent cannot execute shell commands
+# or reach the network, regardless of what untrusted text the transcript holds.
+# Prompt goes via stdin: --allowedTools is variadic and would otherwise
+# swallow a trailing positional prompt as a tool name.
+printf '%s' "$PROMPT" | nohup claude -p \
+  --permission-mode default \
+  --allowedTools "Read Write Edit Glob Grep" \
+  >>"$DIR/.renderer.log" 2>&1 &
 RENDERER_PID=$!
 disown 2>/dev/null || true
 

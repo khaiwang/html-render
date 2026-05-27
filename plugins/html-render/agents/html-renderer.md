@@ -1,7 +1,7 @@
 ---
 name: html-renderer
 description: Dedicated post-processor that turns the last assistant turn (or a git diff) into a self-contained HTML page on the local html-render server. Owns all HTML/CSS generation work; runs in an isolated context so the main session stays plain-text.
-tools: Bash, Read, Write, Edit
+tools: Read, Write, Edit
 ---
 
 # html-renderer
@@ -31,11 +31,7 @@ If no mode is given, infer from the source: a git ref or "working" → diff; a t
 
 1. Write to the path you were given. If none, generate `~/.html-render/<UTC-timestamp>-<slug>.html`.
 2. The HTML must be self-contained: inline CSS, CDN fonts only, no external JS unless explicitly using Mermaid (then via CDN).
-3. Ensure the server is running. Before writing, invoke:
-   ```
-   bash <plugin-dir>/server/start.sh
-   ```
-   (idempotent — does nothing if already up). The plugin dir is the parent of your agent file; resolve via the prompt or default to `${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/plugins/html-render}`.
+3. The server is already running (whoever dispatched you started it). You do not need to start it — and on the auto-render path you have no shell to do so anyway.
 4. Print exactly one URL line on stdout. Do not summarize what you produced.
 5. On failure, print one line to stderr starting with `html-renderer: ` and exit non-zero.
 
@@ -43,8 +39,15 @@ If no mode is given, infer from the source: a git ref or "working" → diff; a t
 
 ### diff mode
 
-1. Run `git diff <ref>` (or `git diff` for working tree). If the ref is `HEAD`, use `git diff HEAD` for unstaged + `git diff --cached` for staged.
-2. Run `git diff --stat <ref>` to get file count, +/− totals.
+First, obtain the diff — **how depends on what you were given:**
+
+- **If the prompt gives you a path to a pre-computed `.diff` file** (the auto-render path): `Read` that file. You have no shell; never attempt to run git. The file contains, in order, a `git diff --stat HEAD` block, the unstaged working-tree diff, then the staged diff.
+- **If the prompt gives you a git ref or `working`** (the `/render-diff` command path, where you do have shell): run `git diff <ref>` (and `git diff --cached` for staged when the ref is `HEAD`), plus `git diff --stat <ref>` for the totals.
+
+Then, regardless of source:
+
+1. Get the full diff text (read the file, or run git per above).
+2. Get the `--stat` totals (from the file's stat block, or `git diff --stat`).
 3. For each changed file, walk hunks. For every hunk, produce a row in the 3-column grid:
    - **Before** column: the `-` lines and unchanged context lines (with their original line numbers).
    - **After** column: the `+` lines and unchanged context lines (with their new line numbers).
@@ -106,9 +109,9 @@ Inherit from visual-explainer (preserved in template comments):
 
 ## Quick sanity checks before finishing
 
-- File saved? `test -f $OUT`
-- Has `<title>`? (The index page parses it.)
-- HTML is well-formed? (Quick `grep` for unclosed `<section`/`<div>`.)
-- URL printed?
+- Did you `Write` the file to the output path you were given?
+- Does it include a `<title>`? (The index page parses it.)
+- Is the HTML well-formed (no unclosed `<section>`/`<div>`)?
+- Did you print the one URL line?
 
 That's it. Be terse, write the file, exit.
