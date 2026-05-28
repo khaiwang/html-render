@@ -95,6 +95,7 @@ a:hover { border-bottom-style: solid; }
 .tag-diff { background: rgba(63, 185, 80, 0.18); color: #2ea043; }
 .tag-plan { background: rgba(101, 116, 205, 0.18); color: #6574cd; }
 .tag-review { background: rgba(212, 167, 58, 0.18); color: #b08a2e; }
+.tag-walkthrough { background: rgba(31, 158, 137, 0.18); color: #1f9e89; }
 summary { cursor: pointer; user-select: none; }
 summary::-webkit-details-marker { color: #888; }
 summary::marker { color: #888; }
@@ -124,6 +125,8 @@ def extract_title(path: Path) -> str:
 
 def classify_tag(filename: str) -> str:
     name = filename.lower()
+    if "walkthrough" in name:
+        return "walkthrough"
     if "diff" in name:
         return "diff"
     if "plan" in name:

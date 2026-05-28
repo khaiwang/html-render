@@ -66,19 +66,29 @@ def is_human(e):
         return 'tool_result' not in types
     return False
 
+def msg_text(e):
+    content = (e.get('message') or e).get('content')
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return ''.join(c.get('text', '') for c in content
+                       if isinstance(c, dict) and c.get('type') == 'text')
+    return ''
+
 def load_turn():
-    # Read the transcript and return (assistant_text, tool_calls) for the
-    # turn following the last genuine human message.
+    # Read the transcript and return (assistant_text, tool_calls, user_prompt)
+    # for the turn following the last genuine human message.
     try:
         with open(path) as f:
             events = [json.loads(line) for line in f if line.strip()]
     except Exception:
-        return '', []
+        return '', [], ''
     last_user = -1
     for i in range(len(events) - 1, -1, -1):
         if is_human(events[i]):
             last_user = i
             break
+    prompt = msg_text(events[last_user]) if last_user >= 0 else ''
     since = events[last_user + 1:] if last_user >= 0 else events
     text_chunks, tool_calls = [], []
     for e in since:
@@ -95,17 +105,17 @@ def load_turn():
                     text_chunks.append(c.get('text', ''))
                 elif c.get('type') == 'tool_use':
                     tool_calls.append(c.get('name', ''))
-    return '\n'.join(text_chunks).strip(), tool_calls
+    return '\n'.join(text_chunks).strip(), tool_calls, prompt
 
 # The Stop event can fire a few ms before the final assistant message is
 # flushed to the transcript. Poll until the turn's assistant text is present
 # AND stable between two reads (so we classify the whole turn, not a partial
 # one). Returns fast when already complete; caps the wait at ~3s for the rare
 # turn that ends without any assistant text.
-text, tool_calls = '', []
+text, tool_calls, prompt = '', [], ''
 prev_len = -1
 for _ in range(15):
-    text, tool_calls = load_turn()
+    text, tool_calls, prompt = load_turn()
     if text and len(text) == prev_len:
         break
     prev_len = len(text)
@@ -113,6 +123,11 @@ for _ in range(15):
 
 if len(text) < 200:
     print('skip'); sys.exit(0)
+
+# Walkthrough: the user asked to be walked through code. Detected from the
+# eliciting prompt; a manual /walkthrough command exists if this misses.
+if re.search(r'\bwalk\s+(?:me\s+|us\s+)?through\b|\bwalk-?through\b', prompt, re.IGNORECASE):
+    print('walkthrough'); sys.exit(0)
 
 if any(t in ('Edit', 'Write', 'NotebookEdit', 'MultiEdit') for t in tool_calls):
     print('diff'); sys.exit(0)
@@ -141,6 +156,15 @@ bash "$PLUGIN_DIR/server/start.sh" >>"$STATE_DIR/.server.log" 2>&1 || true
 PORT="${HTML_RENDER_PORT:-7777}"
 # Output lands in this session's directory; URL carries the project/session path.
 IFS=$'\t' read -r OUT URL < <(hr_new_output "$TRANSCRIPT" "$MODE" "$PORT")
+
+if [ "$MODE" = "walkthrough" ]; then
+  # Two-column code walkthrough: placeholder now, then a capable agent
+  # segments the walkthrough against the real files and Python renders it.
+  bash "$PLUGIN_DIR/lib/walkthrough-render.sh" \
+    "$PLUGIN_DIR" "$OUT" "$URL" "$TRANSCRIPT" >>"$STATE_DIR/.renderer.log" 2>&1
+  log "  → walkthrough placeholder rendered; segments generating out=$OUT"
+  exit 0
+fi
 
 if [ "$MODE" = "diff" ]; then
   # Diff layout is rendered DETERMINISTICALLY in Python (always aligned, one
