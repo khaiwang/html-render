@@ -21,38 +21,44 @@
 <title>{{TITLE}}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Hanken+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
     color-scheme: light dark;
-    --bg: #faf7f5;
-    --surface: #ffffff;
-    --surface-dim: #f3eee9;
-    --border: rgba(60,40,30,0.12);
-    --text: #2a2520;
-    --text-dim: #6b6258;
+    --bg: #f7f4ee;
+    --surface: #fffdf8;
+    --surface-dim: #efe9df;
+    --border: rgba(120,108,90,0.28);
+    --text: #211d17;
+    --text-dim: #6f6658;
+    --accent: #b2541f;
+    --accent-soft: rgba(178,84,31,0.12);
     --good: #65a30d;
     --bad: #be123c;
     --ugly: #d97706;
     --question: #0891b2;
-    --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    --sans: "IBM Plex Sans", -apple-system, system-ui, sans-serif;
-    --serif: "Crimson Pro", Georgia, serif;
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: "Hanken Grotesk", -apple-system, system-ui, sans-serif;
+    --serif: "Bricolage Grotesque", Georgia, serif;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #1a1714;
-      --surface: #221d18;
-      --surface-dim: #2a2520;
-      --border: rgba(255,240,220,0.10);
-      --text: #ece2d5;
-      --text-dim: #a99e8e;
+      --bg: #15130e;
+      --surface: #1c1913;
+      --surface-dim: #221e16;
+      --border: rgba(255,245,225,0.14);
+      --text: #ece4d6;
+      --text-dim: #9a9082;
+      --accent: #e0823f;
+      --accent-soft: rgba(224,130,63,0.16);
       --good: #98d459;
       --bad: #f0506e;
       --ugly: #f0a437;
       --question: #4fc6e0;
     }
   }
+  body::before { content:""; position:fixed; inset:0; z-index:-1; pointer-events:none;
+    background: radial-gradient(120% 80% at 15% -10%, var(--accent-soft), transparent 45%); }
   * { box-sizing: border-box; }
   body {
     margin: 0;

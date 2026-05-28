@@ -29,36 +29,38 @@
 <title>{{TITLE}}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
     color-scheme: light dark;
-    --bg: #f8f7f4;
-    --surface: #ffffff;
-    --surface-dim: #f1efea;
-    --surface-recessed: #efece6;
-    --border: rgba(20,20,30,0.10);
-    --text: #1c1c22;
-    --text-dim: #5a5a66;
-    --accent: #1e3a5f;       /* deep blue */
-    --accent-soft: #d4a73a;  /* gold */
-    --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    --sans: "IBM Plex Sans", -apple-system, system-ui, sans-serif;
-    --serif: "Instrument Serif", Georgia, serif;
+    --bg: #f7f4ee;
+    --surface: #fffdf8;
+    --surface-dim: #efe9df;
+    --surface-recessed: #ece5d8;
+    --border: rgba(120,108,90,0.28);
+    --text: #211d17;
+    --text-dim: #6f6658;
+    --accent: #b2541f;       /* warm rust */
+    --accent-soft: #c98a3c;  /* amber */
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: "Hanken Grotesk", -apple-system, system-ui, sans-serif;
+    --serif: "Bricolage Grotesque", Georgia, serif;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #14141a;
-      --surface: #1c1c24;
-      --surface-dim: #22222c;
-      --surface-recessed: #1a1a22;
-      --border: rgba(255,255,255,0.10);
-      --text: #e8e8ee;
-      --text-dim: #9a9aab;
-      --accent: #6ea8d6;
-      --accent-soft: #e4d089;
+      --bg: #15130e;
+      --surface: #1c1913;
+      --surface-dim: #221e16;
+      --surface-recessed: #1a1710;
+      --border: rgba(255,245,225,0.14);
+      --text: #ece4d6;
+      --text-dim: #9a9082;
+      --accent: #e0823f;
+      --accent-soft: #e4c089;
     }
   }
+  body::before { content:""; position:fixed; inset:0; z-index:-1; pointer-events:none;
+    background: radial-gradient(120% 80% at 15% -10%, rgba(178,84,31,0.10), transparent 45%); }
   * { box-sizing: border-box; }
   body {
     margin: 0;
@@ -71,12 +73,12 @@
   .wrap { max-width: 880px; margin: 0 auto; padding: 3rem 1.5rem 5rem; }
   header.page { margin-bottom: 2.5rem; }
   h1 {
-    font-family: var(--sans);
-    font-size: 2.2rem;
-    font-weight: 600;
+    font-family: var(--serif);
+    font-size: 2.3rem;
+    font-weight: 700;
     margin: 0 0 0.5rem;
-    line-height: 1.15;
-    letter-spacing: -0.01em;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
   }
   .subtitle { color: var(--text-dim); font-size: 1.05rem; max-width: 60ch; }
   .meta {

@@ -46,28 +46,36 @@ def _default_title():
 HOME_TITLE = os.environ.get("HTML_RENDER_TITLE") or _default_title()
 
 INDEX_CSS = """
-:root { color-scheme: light dark; }
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Hanken+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+:root { color-scheme: light dark;
+  --display:'Bricolage Grotesque',Georgia,serif;
+  --sans:'Hanken Grotesk',ui-sans-serif,system-ui,-apple-system,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --bg:#f7f4ee; --surface-dim:#efe9df; --text:#211d17; --dim:#6f6658;
+  --border:rgba(120,108,90,.28); --accent:#b2541f; --accent-soft:rgba(178,84,31,.12); }
+@media (prefers-color-scheme: dark) { :root {
+  --bg:#15130e; --surface-dim:#221e16; --text:#ece4d6; --dim:#9a9082;
+  --border:rgba(255,245,225,.14); --accent:#e0823f; --accent-soft:rgba(224,130,63,.16); } }
+* { box-sizing: border-box; }
 body {
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-  max-width: 880px;
-  margin: 2.5rem auto;
-  padding: 0 1.5rem;
-  line-height: 1.55;
+  font-family: var(--sans); background: var(--bg); color: var(--text);
+  max-width: 900px; margin: 2.5rem auto; padding: 0 1.5rem; line-height: 1.55;
 }
-h1 { font-size: 1.25rem; margin-bottom: 0.25rem; }
-.sub { color: #888; font-size: 0.85rem; margin-bottom: 2.5rem; }
+body::before { content:""; position:fixed; inset:0; z-index:-1; pointer-events:none;
+  background: radial-gradient(120% 80% at 15% -10%, var(--accent-soft), transparent 45%); }
+h1 { font-family: var(--display); font-weight: 700; font-size: 1.7rem; letter-spacing:-.02em; margin-bottom: 0.25rem; }
+.sub { color: var(--dim); font-size: 0.82rem; margin-bottom: 2.5rem; font-family: var(--mono); }
 .project { margin-bottom: 2.5rem; }
 .project__name {
-  font-size: 0.95rem;
-  font-weight: 600;
-  border-bottom: 1px solid rgba(127,127,127,0.35);
+  font-family: var(--display); font-size: 1.05rem; font-weight: 600;
+  border-bottom: 1px solid var(--border);
   padding-bottom: 0.35rem;
   margin-bottom: 1rem;
 }
 .session { margin: 0 0 1.5rem 0.25rem; }
-.session__head { font-size: 0.85rem; margin-bottom: 0.4rem; }
-.session__title { font-weight: 500; }
-.session__meta { color: #888; }
+.session__head { font-size: 0.88rem; margin-bottom: 0.4rem; }
+.session__title { font-weight: 600; }
+.session__meta { color: var(--dim); font-weight: 400; }
 ul { list-style: none; padding: 0; margin: 0 0 0 1rem; }
 li {
   padding: 0.4rem 0;
@@ -76,14 +84,14 @@ li {
   gap: 1rem;
   align-items: baseline;
 }
-.ts { color: #888; font-size: 0.8rem; }
+.ts { color: var(--dim); font-size: 0.78rem; font-family: var(--mono); }
 a {
   color: inherit;
   text-decoration: none;
-  border-bottom: 1px dashed rgba(127,127,127,0.4);
+  border-bottom: 1px dashed var(--border);
 }
-a:hover { border-bottom-style: solid; }
-.empty { color: #888; font-style: italic; margin-top: 2rem; }
+a:hover { border-bottom-color: var(--accent); color: var(--accent); }
+.empty { color: var(--dim); font-style: italic; margin-top: 2rem; }
 .tag {
   display: inline-block;
   font-size: 0.7rem;
@@ -97,15 +105,15 @@ a:hover { border-bottom-style: solid; }
 .tag-review { background: rgba(212, 167, 58, 0.18); color: #b08a2e; }
 .tag-walkthrough { background: rgba(31, 158, 137, 0.18); color: #1f9e89; }
 summary { cursor: pointer; user-select: none; }
-summary::-webkit-details-marker { color: #888; }
-summary::marker { color: #888; }
+summary::-webkit-details-marker { color: var(--accent); }
+summary::marker { color: var(--accent); }
 details.session[open] > summary { margin-bottom: 0.4rem; }
 details.session > summary { margin-bottom: 0; }
 details.project { margin-bottom: 2rem; }
 details.project > summary.project__name { margin-bottom: 1rem; }
-details.session:not([open]) > summary .session__title { color: #888; font-weight: 400; }
+details.session:not([open]) > summary .session__title { color: var(--dim); font-weight: 400; }
 details.more { margin: 0.25rem 0 0.4rem 1rem; }
-details.more > summary { color: #888; font-size: 0.78rem; }
+details.more > summary { color: var(--dim); font-size: 0.78rem; }
 """
 
 TITLE_RE = re.compile(r"<title>(.*?)</title>", re.IGNORECASE | re.DOTALL)

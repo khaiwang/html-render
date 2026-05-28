@@ -97,7 +97,7 @@ Decide based on the source:
 
 Inherit from visual-explainer (preserved in template comments):
 
-- Forbidden fonts as primary: Inter, Roboto, Arial. Templates use IBM Plex / Crimson Pro / Instrument Serif.
+- Forbidden fonts as primary: Inter, Roboto, Arial, system-ui. Templates use Bricolage Grotesque (display) / Hanken Grotesk (body) / JetBrains Mono (code). Keep the template's font + color tokens — do not swap in generic fonts.
 - Forbidden accent colors: indigo-500 / violet-500 (`#8b5cf6`, `#7c3aed`), cyan-magenta-pink neon combinations.
 - Forbidden patterns: gradient text on headings, emoji icons in section headers, animated glow shadows, three-dot window chrome on code blocks.
 - Required: vary visual weight (hero > body > recessed cards). Don't make everything elevated.
