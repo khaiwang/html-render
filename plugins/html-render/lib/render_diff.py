@@ -171,9 +171,12 @@ td.code.blank, td.ln.blank { background: var(--blank); }
 td.code.del::before { content:"- "; color: var(--del-gut); }
 td.code.add::before { content:"+ "; color: var(--add-gut); }
 td.ln.new, td.code.new-side { border-left: 1px solid var(--border); }
-td.why { white-space: normal; font-family: var(--sans); font-size: 12px; line-height: 1.45;
-  color: var(--dim); background: var(--why-bg); border-left: 2px solid var(--accent);
-  padding: .35rem .7rem; vertical-align: top; }
+td.why { white-space: normal; font-family: var(--sans); font-size: 13.5px; line-height: 1.55;
+  color: var(--text); background: var(--why-bg); border-left: 2px solid var(--accent);
+  padding: .55rem .85rem; vertical-align: top; }
+td.why b, td.why code { color: var(--text); }
+td.why code { font-family: var(--mono); font-size: .88em; background: var(--surface-dim);
+  padding: .03rem .3rem; border-radius: 3px; }
 tr.hunk td { background: var(--surface-dim); color: var(--dim); font-size: .75rem;
   padding: .25rem .8rem; border-top: 1px solid var(--border); font-family: var(--sans); }
 .empty { color: var(--dim); font-style: italic; }
@@ -187,6 +190,15 @@ tr.hunk td { background: var(--surface-dim); color: var(--dim); font-size: .75re
 
 def esc(s):
     return html.escape(s, quote=False)
+
+
+def md_inline(s):
+    """Light inline markdown for explanation text: `code`, **bold**, *italic*."""
+    s = html.escape(s, quote=False)
+    s = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", s)
+    s = re.sub(r"`([^`]+)`", r"<code>\1</code>", s)
+    s = re.sub(r"(?<!\w)\*(?!\s)(.+?)(?<!\s)\*(?!\w)", r"<i>\1</i>", s)
+    return s
 
 
 def cell(item, new_side):
@@ -248,7 +260,7 @@ def render(files, title, url, prompt_text, explanations, related=None):
             for r_i, (left, right) in enumerate(rows):
                 cells = cell(left, False) + cell(right, True)
                 if has_why and r_i == 0:
-                    cells += f'<td class="why" rowspan="{len(rows)}">{esc(expl)}</td>'
+                    cells += f'<td class="why" rowspan="{len(rows)}">{md_inline(expl)}</td>'
                 out.append("<tr>" + cells + "</tr>")
         out.append("</tbody></table></div></div>")
     out.append("</body></html>")
@@ -291,7 +303,7 @@ def main():
     ap.add_argument("--title")
     ap.add_argument("--explanations")
     ap.add_argument("--related-url")
-    ap.add_argument("--related-label", default="Explanation →")
+    ap.add_argument("--related-label", default="Session summary →")
     a = ap.parse_args()
 
     files = parse(read_diff(a))

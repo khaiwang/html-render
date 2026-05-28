@@ -189,7 +189,7 @@ if [ "$MODE" = "diff+narr" ] && [ "$HAS_CLAUDE" = "1" ]; then
   # Compute both URLs FIRST so each page can link the other.
   IFS=$'\t' read -r D_OUT D_URL _T < <(hr_new_output "$TRANSCRIPT" "diff" "$PORT")
   IFS=$'\t' read -r N_OUT N_URL _T < <(hr_new_output "$TRANSCRIPT" "narrative" "$PORT")
-  render_diff_page "$D_OUT" "$D_URL" "$N_URL" "Explanation →"
+  render_diff_page "$D_OUT" "$D_URL" "$N_URL" "Session summary →"
   bash "$PLUGIN_DIR/lib/narrative-render.sh" \
     "$PLUGIN_DIR" "$N_OUT" "$N_URL" "$TRANSCRIPT" "$D_URL" "← Code diff" \
     >>"$STATE_DIR/.renderer.log" 2>&1

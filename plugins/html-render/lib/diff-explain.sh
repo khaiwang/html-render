@@ -16,7 +16,7 @@
 set -u
 
 PLUGIN_DIR="$1"; DIFF="$2"; OUT="$3"; URL="$4"; TRANSCRIPT="${5:-}"
-RELATED_URL="${6:-}"; RELATED_LABEL="${7:-Explanation →}"
+RELATED_URL="${6:-}"; RELATED_LABEL="${7:-Session summary →}"
 PY="$PLUGIN_DIR/lib/render_diff.py"
 
 REL_ARGS=()
