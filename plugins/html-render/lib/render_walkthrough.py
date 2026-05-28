@@ -66,24 +66,59 @@ def md_inline(s):
 
 
 def md2html(text):
-    out, in_ul = [], False
+    out = []
+    list_type = None        # None | "ul" | "ol"
+    in_code = False
+    code = []
+
+    def close_list():
+        nonlocal list_type
+        if list_type:
+            out.append(f"</{list_type}>")
+            list_type = None
+
+    def flush_code():
+        nonlocal in_code, code
+        body = "\n".join(html.escape(c, quote=False) for c in code)
+        out.append(f'<pre class="cb"><code>{body}</code></pre>')
+        code, in_code = [], False
+
     for ln in str(text).split("\n"):
+        if ln.strip().startswith("```"):
+            if in_code:
+                flush_code()
+            else:
+                close_list(); in_code = True
+            continue
+        if in_code:
+            code.append(ln)
+            continue
         st = ln.strip()
         if not st:
-            if in_ul:
-                out.append("</ul>"); in_ul = False
+            close_list()
             continue
-        m = re.match(r"^[-*•]\s+(.*)", st)
-        if m:
-            if not in_ul:
-                out.append("<ul>"); in_ul = True
-            out.append(f"<li>{md_inline(m.group(1))}</li>")
+        h = re.match(r"^(#{1,6})\s+(.*)", st)
+        if h:
+            close_list()
+            lvl = min(6, len(h.group(1)) + 2)   # # -> h3, ## -> h4, ...
+            out.append(f"<h{lvl}>{md_inline(h.group(2))}</h{lvl}>")
+            continue
+        ol = re.match(r"^(\d+)[.)]\s+(.*)", st)
+        ul = re.match(r"^[-*•]\s+(.*)", st)
+        if ol:
+            if list_type != "ol":
+                close_list(); out.append("<ol>"); list_type = "ol"
+            out.append(f"<li>{md_inline(ol.group(2))}</li>")
+        elif ul:
+            if list_type != "ul":
+                close_list(); out.append("<ul>"); list_type = "ul"
+            out.append(f"<li>{md_inline(ul.group(1))}</li>")
         else:
-            if in_ul:
-                out.append("</ul>"); in_ul = False
+            close_list()
             out.append(f"<p>{md_inline(st)}</p>")
-    if in_ul:
-        out.append("</ul>")
+    if in_code:
+        flush_code()
+    close_list()
     return "\n".join(out)
 
 
@@ -115,10 +150,18 @@ h1 { font-family: var(--sans); font-weight: 600; font-size: 1.5rem; margin: 0 0 
 .cl code { font-family: var(--mono); }
 .cl.miss { color: var(--dim); font-style: italic; padding: .3rem 1rem; }
 .seg__note { background: var(--note-bg); padding: .6rem 1rem; font-size: 13.5px; }
-.seg__note p { margin: 0 0 .6rem; } .seg__note ul { margin: 0 0 .6rem; padding-left: 1.2rem; }
+.seg__note p { margin: 0 0 .6rem; }
+.seg__note ul, .seg__note ol { margin: 0 0 .6rem; padding-left: 1.3rem; }
 .seg__note li { margin-bottom: .3rem; }
+.seg__note h3, .seg__note h4, .seg__note h5, .seg__note h6 {
+  font-family: var(--sans); margin: .7rem 0 .35rem; line-height: 1.25; }
+.seg__note h3 { font-size: 1rem; } .seg__note h4 { font-size: .92rem; }
+.seg__note h5, .seg__note h6 { font-size: .85rem; color: var(--dim); }
 .seg__note code { font-family: var(--mono); font-size: .9em; background: rgba(127,127,127,.15);
   padding: .05rem .3rem; border-radius: 3px; }
+.seg__note pre.cb { background: var(--code-bg); border: 1px solid var(--border); border-radius: 5px;
+  padding: .5rem .7rem; overflow-x: auto; font-size: 12px; margin: 0 0 .6rem; }
+.seg__note pre.cb code { background: none; padding: 0; }
 .empty { color: var(--dim); font-style: italic; }
 .note-banner { background: rgba(212,167,58,.14); border:1px solid rgba(212,167,58,.4);
   border-radius:6px; padding:.5rem .85rem; font-size:.85rem; margin-bottom:1.25rem; }
