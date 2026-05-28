@@ -162,11 +162,122 @@ td.why { white-space: normal; font-family: var(--sans); font-size: 12px; line-he
 tr.hunk td { background: rgba(127,127,127,.06); color: var(--dim); font-size: .75rem;
   padding: .25rem .8rem; border-top: 1px solid var(--border); }
 .empty { color: var(--dim); font-style: italic; }
+.narrative { background: rgba(127,127,127,.05); border: 1px solid var(--border);
+  border-radius: 8px; padding: .8rem 1.1rem; margin-bottom: 1.5rem;
+  font-family: var(--sans); font-size: 14px; line-height: 1.55; }
+.narrative p { margin: 0 0 .6rem; }
+.narrative ul, .narrative ol { margin: 0 0 .6rem; padding-left: 1.3rem; }
+.narrative li { margin-bottom: .3rem; }
+.narrative h3, .narrative h4, .narrative h5, .narrative h6 {
+  font-family: var(--sans); margin: .7rem 0 .35rem; line-height: 1.25; font-weight: 600; }
+.narrative h3 { font-size: 1rem; } .narrative h4 { font-size: .94rem; }
+.narrative h5, .narrative h6 { font-size: .88rem; color: var(--dim); }
+.narrative code { font-family: ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size: .9em; background: rgba(127,127,127,.15); padding: .05rem .3rem; border-radius: 3px; }
+.narrative pre.cb { background: rgba(127,127,127,.08); border: 1px solid var(--border);
+  border-radius: 5px; padding: .5rem .7rem; overflow-x: auto; font-size: 12px; margin: 0 0 .6rem; }
+.narrative pre.cb code { background: none; padding: 0; }
 """
 
 
 def esc(s):
     return html.escape(s, quote=False)
+
+
+def md_inline(s):
+    s = html.escape(s, quote=False)
+    s = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", s)
+    s = re.sub(r"(?<!\w)\*(?!\s)(.+?)(?<!\s)\*(?!\w)", r"<i>\1</i>", s)
+    s = re.sub(r"`([^`]+)`", r"<code>\1</code>", s)
+    s = re.sub(r"\[([^\]]+)\]\((https?://[^)]+)\)", r'<a href="\2">\1</a>', s)
+    return s
+
+
+def md2html(text):
+    out, list_type, in_code, code = [], None, False, []
+
+    def close_list():
+        nonlocal list_type
+        if list_type:
+            out.append(f"</{list_type}>"); list_type = None
+
+    def flush_code():
+        nonlocal in_code, code
+        body = "\n".join(html.escape(c, quote=False) for c in code)
+        out.append(f'<pre class="cb"><code>{body}</code></pre>')
+        code, in_code = [], False
+
+    for ln in str(text).split("\n"):
+        if ln.strip().startswith("```"):
+            if in_code: flush_code()
+            else: close_list(); in_code = True
+            continue
+        if in_code:
+            code.append(ln); continue
+        st = ln.strip()
+        if not st:
+            close_list(); continue
+        h = re.match(r"^(#{1,6})\s+(.*)", st)
+        if h:
+            close_list()
+            lvl = min(6, len(h.group(1)) + 2)
+            out.append(f"<h{lvl}>{md_inline(h.group(2))}</h{lvl}>"); continue
+        ol = re.match(r"^(\d+)[.)]\s+(.*)", st)
+        ul = re.match(r"^[-*•]\s+(.*)", st)
+        if ol:
+            if list_type != "ol":
+                close_list(); out.append("<ol>"); list_type = "ol"
+            out.append(f"<li>{md_inline(ol.group(2))}</li>")
+        elif ul:
+            if list_type != "ul":
+                close_list(); out.append("<ul>"); list_type = "ul"
+            out.append(f"<li>{md_inline(ul.group(1))}</li>")
+        else:
+            close_list()
+            out.append(f"<p>{md_inline(st)}</p>")
+    if in_code: flush_code()
+    close_list()
+    return "\n".join(out)
+
+
+def last_assistant_text(transcript):
+    """Assistant prose from the most recent turn (since the last human msg)."""
+    if not transcript or not os.path.isfile(transcript):
+        return ""
+    try:
+        events = [json.loads(l) for l in open(transcript) if l.strip()]
+    except Exception:
+        return ""
+
+    def role(e):
+        return e.get("role") or (e.get("message") or {}).get("role")
+
+    def is_human(e):
+        if role(e) != "user" or e.get("isMeta"):
+            return False
+        c = (e.get("message") or e).get("content")
+        if isinstance(c, str):
+            return True
+        if isinstance(c, list):
+            return "tool_result" not in {x.get("type") for x in c if isinstance(x, dict)}
+        return False
+
+    last_user = -1
+    for i in range(len(events) - 1, -1, -1):
+        if is_human(events[i]):
+            last_user = i; break
+    parts = []
+    for e in events[last_user + 1:]:
+        if role(e) != "assistant":
+            continue
+        c = (e.get("message") or e).get("content")
+        if isinstance(c, str):
+            parts.append(c)
+        elif isinstance(c, list):
+            for x in c:
+                if isinstance(x, dict) and x.get("type") == "text":
+                    parts.append(x.get("text", ""))
+    return "\n".join(parts).strip()
 
 
 def cell(item, new_side):
@@ -180,7 +291,7 @@ def cell(item, new_side):
             f'<td class="code {css}{code_extra}">{esc(text)}</td>')
 
 
-def render(files, title, url, prompt_text, explanations):
+def render(files, title, url, prompt_text, explanations, narrative=""):
     has_why = bool(explanations)
     ncols = 5 if has_why else 4
     total_a = sum(f["adds"] for f in files)
@@ -195,6 +306,10 @@ def render(files, title, url, prompt_text, explanations):
            f'{datetime.now().strftime("%Y-%m-%d %H:%M")}</div>']
     if prompt_text:
         out.append(f'<div class="prompt"><b>Prompt</b>{esc(prompt_text)}</div>')
+    # The assistant's prose around the edits — render above the diff so the
+    # explanation isn't discarded when a turn has both narrative + edits.
+    if narrative and len(narrative) >= 20:
+        out.append(f'<div class="narrative">{md2html(narrative)}</div>')
     if not files:
         out.append('<p class="empty">No changes to show.</p>')
 
@@ -278,7 +393,8 @@ def main():
         title = "diff — no changes"
 
     out_html = render(files, title, a.url, eliciting_prompt(a.transcript),
-                      load_explanations(a.explanations))
+                      load_explanations(a.explanations),
+                      narrative=last_assistant_text(a.transcript))
     os.makedirs(os.path.dirname(a.out), exist_ok=True)
     with open(a.out, "w", encoding="utf-8") as f:
         f.write(out_html)
