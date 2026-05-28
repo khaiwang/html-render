@@ -129,15 +129,19 @@ if len(text) < 200:
 if re.search(r'\bwalk\s+(?:me\s+|us\s+)?through\b|\bwalk-?through\b', prompt, re.IGNORECASE):
     print('walkthrough'); sys.exit(0)
 
-if any(t in ('Edit', 'Write', 'NotebookEdit', 'MultiEdit') for t in tool_calls):
-    print('diff'); sys.exit(0)
-
-# Structural signals that a turn is substantial enough to render.
+# Structural signals that a turn carries a substantial explanation.
 headings = len(re.findall(r'^\s*#{1,3}\s+\S', text, re.MULTILINE))
 list_items = len(re.findall(r'^\s*(?:\d+\.|[-*])\s', text, re.MULTILINE))
 fences = text.count('```') // 2
+narrative_worthy = (len(text) >= 1500 or headings >= 2 or list_items >= 5 or fences >= 3)
 
-if len(text) >= 1500 or headings >= 2 or list_items >= 5 or fences >= 3:
+# Edits → diff. If the same turn ALSO carries a real explanation, emit
+# 'diff+narr' so the hook renders BOTH (a diff page and a normal narrative
+# page, cross-linked) instead of discarding the prose.
+if any(t in ('Edit', 'Write', 'NotebookEdit', 'MultiEdit') for t in tool_calls):
+    print('diff+narr' if narrative_worthy else 'diff'); sys.exit(0)
+
+if narrative_worthy:
     print('narrative'); sys.exit(0)
 
 print('skip')
@@ -154,66 +158,60 @@ fi
 bash "$PLUGIN_DIR/server/start.sh" >>"$STATE_DIR/.server.log" 2>&1 || true
 
 PORT="${HTML_RENDER_PORT:-7777}"
-# Output lands in this session's directory; URL carries the project/session path.
-IFS=$'\t' read -r OUT URL < <(hr_new_output "$TRANSCRIPT" "$MODE" "$PORT")
+HAS_CLAUDE=0; command -v claude >/dev/null 2>&1 && HAS_CLAUDE=1
+
+# render_diff_page <out> <url> [related_url] [related_label]
+render_diff_page() {
+  local out="$1" url="$2" diff_file="${1%.html}.diff"
+  {
+    echo "=== git diff --stat HEAD ==="; git diff --stat HEAD
+    echo "=== git diff (unstaged working tree) ==="; git diff
+    echo "=== git diff --cached (staged) ==="; git diff --cached
+  } >"$diff_file" 2>/dev/null || true
+  bash "$PLUGIN_DIR/lib/diff-explain.sh" \
+    "$PLUGIN_DIR" "$diff_file" "$out" "$url" "$TRANSCRIPT" "${3:-}" "${4:-}" \
+    >>"$STATE_DIR/.renderer.log" 2>&1
+}
 
 if [ "$MODE" = "walkthrough" ]; then
   # Two-column code walkthrough: placeholder now, then a capable agent
   # segments the walkthrough against the real files and Python renders it.
+  IFS=$'\t' read -r OUT URL _T < <(hr_new_output "$TRANSCRIPT" "walkthrough" "$PORT")
   bash "$PLUGIN_DIR/lib/walkthrough-render.sh" \
     "$PLUGIN_DIR" "$OUT" "$URL" "$TRANSCRIPT" >>"$STATE_DIR/.renderer.log" 2>&1
   log "  → walkthrough placeholder rendered; segments generating out=$OUT"
   exit 0
 fi
 
-if [ "$MODE" = "diff" ]; then
-  # Diff layout is rendered DETERMINISTICALLY in Python (always aligned, one
-  # scrollable block per file). diff-explain.sh renders it immediately, then
-  # adds the per-hunk explanation column in the background via a confined LLM.
-  DIFF_FILE="${OUT%.html}.diff"
-  {
-    echo "=== git diff --stat HEAD ==="; git diff --stat HEAD
-    echo "=== git diff (unstaged working tree) ==="; git diff
-    echo "=== git diff --cached (staged) ==="; git diff --cached
-  } >"$DIFF_FILE" 2>/dev/null || true
-  bash "$PLUGIN_DIR/lib/diff-explain.sh" \
-    "$PLUGIN_DIR" "$DIFF_FILE" "$OUT" "$URL" "$TRANSCRIPT" \
+if [ "$MODE" = "diff+narr" ] && [ "$HAS_CLAUDE" = "1" ]; then
+  # Turn had BOTH edits and a real explanation → two cross-linked pages: a
+  # deterministic diff page and a normal (rich, LLM-templated) narrative page.
+  # Compute both URLs FIRST so each page can link the other.
+  IFS=$'\t' read -r D_OUT D_URL _T < <(hr_new_output "$TRANSCRIPT" "diff" "$PORT")
+  IFS=$'\t' read -r N_OUT N_URL _T < <(hr_new_output "$TRANSCRIPT" "narrative" "$PORT")
+  render_diff_page "$D_OUT" "$D_URL" "$N_URL" "Explanation →"
+  bash "$PLUGIN_DIR/lib/narrative-render.sh" \
+    "$PLUGIN_DIR" "$N_OUT" "$N_URL" "$TRANSCRIPT" "$D_URL" "← Code diff" \
     >>"$STATE_DIR/.renderer.log" 2>&1
+  log "  → diff+narrative rendered: diff=$D_URL narrative=$N_URL"
+  exit 0
+fi
+
+if [ "$MODE" = "diff" ] || [ "$MODE" = "diff+narr" ]; then
+  # Plain diff (or diff+narr with no claude available for the narrative page).
+  IFS=$'\t' read -r OUT URL _T < <(hr_new_output "$TRANSCRIPT" "diff" "$PORT")
+  render_diff_page "$OUT" "$URL"
   log "  → rendered diff (deterministic; explanations in background) out=$OUT"
   exit 0
 fi
 
 # Narrative mode: dispatch the confined LLM renderer in the background.
-if ! command -v claude >/dev/null 2>&1; then
+if [ "$HAS_CLAUDE" != "1" ]; then
   log "  → 'claude' CLI not on PATH; cannot dispatch narrative renderer"
   exit 0
 fi
-
-PROMPT="You are the html-renderer subagent. Read the instructions at $PLUGIN_DIR/agents/html-renderer.md.
-
-Source: the Claude Code transcript at $TRANSCRIPT (read the last assistant turn).
-Mode: narrative
-Output: $OUT
-Server port: $PORT
-Plugin dir: $PLUGIN_DIR
-
-The server is already running; you do not need to start it.
-You have ONLY Read and Write tools — generate the HTML, write it to the output path, and print the URL.
-
-Print exactly one line on success: rendered: $URL"
-
-# Detach fully — never block the session. Confine the renderer to read/write
-# tools in default permission mode, so even if the parent session runs in
-# bypass mode this unattended background agent cannot execute shell commands
-# or reach the network, regardless of what untrusted text the transcript holds.
-# Prompt goes via stdin: --allowedTools is variadic and would otherwise
-# swallow a trailing positional prompt as a tool name.
-printf '%s' "$PROMPT" | HTML_RENDER_CHILD=1 nohup claude -p \
-  --permission-mode default \
-  --allowedTools "Read Write Edit Glob Grep" \
-  >>"$STATE_DIR/.renderer.log" 2>&1 &
-RENDERER_PID=$!
-disown 2>/dev/null || true
-
-log "  → dispatched narrative renderer pid=$RENDERER_PID out=$OUT"
+IFS=$'\t' read -r OUT URL _T < <(hr_new_output "$TRANSCRIPT" "narrative" "$PORT")
+bash "$PLUGIN_DIR/lib/narrative-render.sh" \
+  "$PLUGIN_DIR" "$OUT" "$URL" "$TRANSCRIPT" >>"$STATE_DIR/.renderer.log" 2>&1
+log "  → dispatched narrative renderer out=$OUT"
 exit 0

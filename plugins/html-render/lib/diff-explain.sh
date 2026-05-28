@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Render a diff to HTML, then (optionally) add the per-hunk explanation column.
 #
-#   diff-explain.sh <plugin_dir> <diff_file> <out_html> <url> <transcript>
+#   diff-explain.sh <plugin_dir> <diff_file> <out_html> <url> <transcript> \
+#                   [related_url] [related_label]
 #
 # Stage 1 (synchronous): render the side-by-side diff immediately so the URL
 # works right away — deterministic, no LLM.
@@ -15,10 +16,14 @@
 set -u
 
 PLUGIN_DIR="$1"; DIFF="$2"; OUT="$3"; URL="$4"; TRANSCRIPT="${5:-}"
+RELATED_URL="${6:-}"; RELATED_LABEL="${7:-Explanation →}"
 PY="$PLUGIN_DIR/lib/render_diff.py"
 
+REL_ARGS=()
+[ -n "$RELATED_URL" ] && REL_ARGS=(--related-url "$RELATED_URL" --related-label "$RELATED_LABEL")
+
 # Stage 1 — always produce a valid page now.
-python3 "$PY" --diff "$DIFF" --out "$OUT" --url "$URL" --transcript "$TRANSCRIPT"
+python3 "$PY" --diff "$DIFF" --out "$OUT" --url "$URL" --transcript "$TRANSCRIPT" "${REL_ARGS[@]}"
 
 [ "${HTML_RENDER_EXPLAIN:-1}" = "0" ] && exit 0
 command -v claude >/dev/null 2>&1 || exit 0
@@ -44,7 +49,7 @@ Then, for EACH hunk in order, write ONE concise sentence saying what the change 
     --allowedTools "Read Grep Glob Bash(git *)" >"$EXPL" 2>/dev/null
   if [ -s "$EXPL" ]; then
     python3 "$PY" --diff "$DIFF" --out "$OUT" --url "$URL" \
-      --transcript "$TRANSCRIPT" --explanations "$EXPL"
+      --transcript "$TRANSCRIPT" --explanations "$EXPL" "${REL_ARGS[@]}"
   fi
 ) >/dev/null 2>&1 &
 disown 2>/dev/null || true
