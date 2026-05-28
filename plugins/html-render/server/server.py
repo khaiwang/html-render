@@ -46,28 +46,25 @@ def _default_title():
 HOME_TITLE = os.environ.get("HTML_RENDER_TITLE") or _default_title()
 
 INDEX_CSS = """
-@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Hanken+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root { color-scheme: light dark;
-  --display:'Bricolage Grotesque',Georgia,serif;
   --sans:'Hanken Grotesk',ui-sans-serif,system-ui,-apple-system,sans-serif;
   --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-  --bg:#f7f4ee; --surface-dim:#efe9df; --text:#211d17; --dim:#6f6658;
-  --border:rgba(120,108,90,.28); --accent:#b2541f; --accent-soft:rgba(178,84,31,.12); }
+  --bg:#fafafa; --surface-dim:#f1f1f3; --text:#1a1a1f; --dim:#6b7280;
+  --border:#e3e3e8; --accent:#2563eb; --accent-soft:rgba(37,99,235,.10); }
 @media (prefers-color-scheme: dark) { :root {
-  --bg:#15130e; --surface-dim:#221e16; --text:#ece4d6; --dim:#9a9082;
-  --border:rgba(255,245,225,.14); --accent:#e0823f; --accent-soft:rgba(224,130,63,.16); } }
+  --bg:#161618; --surface-dim:#26262a; --text:#e9e9ec; --dim:#9aa0a6;
+  --border:rgba(255,255,255,.11); --accent:#7aa2f7; --accent-soft:rgba(122,162,247,.14); } }
 * { box-sizing: border-box; }
 body {
   font-family: var(--sans); background: var(--bg); color: var(--text);
   max-width: 900px; margin: 2.5rem auto; padding: 0 1.5rem; line-height: 1.55;
 }
-body::before { content:""; position:fixed; inset:0; z-index:-1; pointer-events:none;
-  background: radial-gradient(120% 80% at 15% -10%, var(--accent-soft), transparent 45%); }
-h1 { font-family: var(--display); font-weight: 700; font-size: 1.7rem; letter-spacing:-.02em; margin-bottom: 0.25rem; }
+h1 { font-family: var(--sans); font-weight: 700; font-size: 1.6rem; letter-spacing:-.02em; margin-bottom: 0.25rem; }
 .sub { color: var(--dim); font-size: 0.82rem; margin-bottom: 2.5rem; font-family: var(--mono); }
 .project { margin-bottom: 2.5rem; }
 .project__name {
-  font-family: var(--display); font-size: 1.05rem; font-weight: 600;
+  font-family: var(--sans); font-size: 1.05rem; font-weight: 700;
   border-bottom: 1px solid var(--border);
   padding-bottom: 0.35rem;
   margin-bottom: 1rem;

@@ -29,38 +29,36 @@
 <title>{{TITLE}}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
     color-scheme: light dark;
-    --bg: #f7f4ee;
-    --surface: #fffdf8;
-    --surface-dim: #efe9df;
-    --surface-recessed: #ece5d8;
-    --border: rgba(120,108,90,0.28);
-    --text: #211d17;
-    --text-dim: #6f6658;
-    --accent: #b2541f;       /* warm rust */
-    --accent-soft: #c98a3c;  /* amber */
+    --bg: #fafafa;
+    --surface: #ffffff;
+    --surface-dim: #f1f1f3;
+    --surface-recessed: #ececef;
+    --border: #e3e3e8;
+    --text: #1a1a1f;
+    --text-dim: #6b7280;
+    --accent: #2563eb;
+    --accent-soft: rgba(37,99,235,0.35);
     --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     --sans: "Hanken Grotesk", -apple-system, system-ui, sans-serif;
-    --serif: "Bricolage Grotesque", Georgia, serif;
+    --serif: "Hanken Grotesk", -apple-system, system-ui, sans-serif;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #15130e;
-      --surface: #1c1913;
-      --surface-dim: #221e16;
-      --surface-recessed: #1a1710;
-      --border: rgba(255,245,225,0.14);
-      --text: #ece4d6;
-      --text-dim: #9a9082;
-      --accent: #e0823f;
-      --accent-soft: #e4c089;
+      --bg: #161618;
+      --surface: #1d1d20;
+      --surface-dim: #26262a;
+      --surface-recessed: #202024;
+      --border: rgba(255,255,255,0.11);
+      --text: #e9e9ec;
+      --text-dim: #9aa0a6;
+      --accent: #7aa2f7;
+      --accent-soft: rgba(122,162,247,0.4);
     }
   }
-  body::before { content:""; position:fixed; inset:0; z-index:-1; pointer-events:none;
-    background: radial-gradient(120% 80% at 15% -10%, rgba(178,84,31,0.10), transparent 45%); }
   * { box-sizing: border-box; }
   body {
     margin: 0;

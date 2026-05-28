@@ -126,27 +126,24 @@ def load_explanations(path):
 
 
 CSS = """
-@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Hanken+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root { color-scheme: light dark;
-  --display:'Bricolage Grotesque',Georgia,serif;
   --sans:'Hanken Grotesk',ui-sans-serif,system-ui,-apple-system,sans-serif;
   --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-  --bg:#f7f4ee; --surface:#fffdf8; --surface-dim:#efe9df; --text:#211d17; --dim:#6f6658;
-  --border:rgba(120,108,90,.28); --accent:#b2541f; --accent-soft:rgba(178,84,31,.12);
-  --add-bg:rgba(63,150,80,.15); --del-bg:rgba(200,60,55,.13);
-  --add-gut:#2e7d3a; --del-gut:#b3322c; --blank:rgba(120,108,90,.05);
-  --why-bg:rgba(178,84,31,.07); }
+  --bg:#fafafa; --surface:#ffffff; --surface-dim:#f1f1f3; --text:#1a1a1f; --dim:#6b7280;
+  --border:#e3e3e8; --accent:#2563eb; --accent-soft:rgba(37,99,235,.10);
+  --add-bg:rgba(35,160,85,.12); --del-bg:rgba(210,55,55,.10);
+  --add-gut:#1a7f37; --del-gut:#c0362c; --blank:rgba(130,130,140,.05);
+  --why-bg:rgba(130,130,140,.06); }
 @media (prefers-color-scheme: dark) { :root {
-  --bg:#15130e; --surface:#1c1913; --surface-dim:#221e16; --text:#ece4d6; --dim:#9a9082;
-  --border:rgba(255,245,225,.14); --accent:#e0823f; --accent-soft:rgba(224,130,63,.16);
-  --add-bg:rgba(63,150,80,.2); --del-bg:rgba(220,80,70,.2); --blank:rgba(255,245,225,.04);
-  --why-bg:rgba(224,130,63,.1); } }
+  --bg:#161618; --surface:#1d1d20; --surface-dim:#26262a; --text:#e9e9ec; --dim:#9aa0a6;
+  --border:rgba(255,255,255,.11); --accent:#7aa2f7; --accent-soft:rgba(122,162,247,.14);
+  --add-bg:rgba(60,170,90,.18); --del-bg:rgba(220,80,70,.18); --blank:rgba(255,255,255,.04);
+  --why-bg:rgba(255,255,255,.05); } }
 * { box-sizing: border-box; }
 body { font-family: var(--mono); background: var(--bg); color: var(--text);
   max-width: 1400px; margin: 2rem auto; padding: 0 1.25rem; line-height: 1.5; }
-body::before { content:""; position:fixed; inset:0; z-index:-1; pointer-events:none;
-  background: radial-gradient(120% 80% at 15% -10%, var(--accent-soft), transparent 45%); }
-h1 { font-family: var(--display); font-size: 1.5rem; font-weight: 600; letter-spacing:-.01em; margin: 0 0 .3rem; }
+h1 { font-family: var(--sans); font-size: 1.4rem; font-weight: 700; letter-spacing:-.01em; margin: 0 0 .3rem; }
 .meta { color: var(--dim); font-size: .82rem; margin-bottom: .5rem; font-family: var(--sans); }
 .prompt { margin: .75rem 0 1.5rem; padding: .55rem .85rem; border-left: 3px solid var(--accent);
   background: var(--accent-soft); color: var(--dim); font-size: .82rem; border-radius: 0 4px 4px 0;
@@ -163,8 +160,11 @@ h1 { font-family: var(--display); font-size: 1.5rem; font-weight: 600; letter-sp
 table.diff { border-collapse: collapse; width: 100%; font-size: 12.5px; table-layout: fixed; }
 table.diff td { padding: 0 .3rem; vertical-align: top; }
 td.ln { text-align: right; color: var(--dim); user-select: none; white-space: nowrap; padding: 0 .5rem; }
-td.code { white-space: pre; overflow-wrap: anywhere; padding-left: .4rem; }
-table.diff.with-why td.code { white-space: pre-wrap; }   /* wrap so the why column stays visible */
+/* Always wrap code: with table-layout:fixed, non-wrapping lines overflow into
+   adjacent columns and shove the explanation out. Wrapping keeps every cell
+   inside its column. Indentation is preserved by pre-wrap. */
+td.code { white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word;
+  padding-left: .4rem; min-width: 0; }
 td.code.del { background: var(--del-bg); } td.ln.del { background: var(--del-bg); }
 td.code.add { background: var(--add-bg); } td.ln.add { background: var(--add-bg); }
 td.code.blank, td.ln.blank { background: var(--blank); }
@@ -179,9 +179,9 @@ tr.hunk td { background: var(--surface-dim); color: var(--dim); font-size: .75re
 .empty { color: var(--dim); font-style: italic; }
 .xref { margin: 0 0 1.25rem; }
 .xref a { display: inline-block; padding: .4rem .8rem; border-radius: 6px; font-family: var(--sans);
-  font-size: 14px; border: 1px solid var(--accent); background: var(--accent-soft);
+  font-size: 14px; border: 1px solid var(--border); background: var(--surface-dim);
   color: var(--accent); text-decoration: none; font-weight: 500; }
-.xref a:hover { background: var(--accent); color: var(--surface); }
+.xref a:hover { border-color: var(--accent); }
 """
 
 
