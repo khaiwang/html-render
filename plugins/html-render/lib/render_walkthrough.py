@@ -239,6 +239,7 @@ h1 { font-family: var(--sans); font-weight: 700; font-size: 1.5rem; letter-spaci
   padding-right: 1em; white-space: nowrap; border-right: 1px solid var(--border); }
 .hljs-ln-code { padding-left: 1em; }
 .miss { color: var(--dim); font-style: italic; padding: .4rem 1.1rem; }
+.srcpool { display: none; }
 .seg__note { padding: 1rem 1.2rem; font-size: 15px; color: var(--text); }
 .seg__note p { margin: 0 0 .75rem; }
 .seg__note > :first-child { margin-top: 0; }
@@ -299,18 +300,50 @@ HLJS_SCRIPTS = """
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlightjs-line-numbers.js/2.8.0/highlightjs-line-numbers.min.js"></script>
 <script>
-// Real source blocks: highlight + numbered gutter starting at the file line.
-document.querySelectorAll('.seg__code pre code').forEach(function(el){
-  try { hljs.highlightElement(el); } catch (e) {}
-  try {
-    var start = parseInt(el.parentElement.getAttribute('data-start') || '1', 10);
-    if (window.hljs && hljs.lineNumbersBlock) hljs.lineNumbersBlock(el, {startFrom: start});
-  } catch (e) {}
-});
-// Inline note snippets: highlight only — NO line numbers.
-document.querySelectorAll('.seg__note pre code').forEach(function(el){
-  try { hljs.highlightElement(el); } catch (e) {}
-});
+(function(){
+  if (!window.hljs) return;  // offline → plain fallbacks remain, still readable
+  // 1) Highlight each FULL source file once (correct multi-line context) and
+  //    number its lines. Slicing a fragment instead would mis-color code that
+  //    spans the cut (docstrings, block comments).
+  document.querySelectorAll('.srcfull code').forEach(function(el){
+    try { hljs.highlightElement(el); } catch (e) {}
+    try { if (hljs.lineNumbersBlock) hljs.lineNumbersBlock(el, {startFrom: 1}); } catch (e) {}
+  });
+  // 2) Inline note snippets: highlight only (no line numbers).
+  document.querySelectorAll('.seg__note pre code').forEach(function(el){
+    try { hljs.highlightElement(el); } catch (e) {}
+  });
+  // 3) Once the line-numbers tables exist, copy each section's line range out
+  //    of its full-file table. If anything fails, the plain slice stays.
+  function sliceAll(){
+    document.querySelectorAll('.seg__code[data-src]').forEach(function(box){
+      try {
+        var src = document.getElementById(box.getAttribute('data-src'));
+        var table = src && src.querySelector('table.hljs-ln');
+        if (!table) return;
+        var s = parseInt(box.getAttribute('data-start'), 10);
+        var e = parseInt(box.getAttribute('data-end'), 10);
+        var tbody = document.createElement('tbody');
+        table.querySelectorAll('tr').forEach(function(tr){
+          var cell = tr.querySelector('.hljs-ln-code');
+          var n = cell ? parseInt(cell.getAttribute('data-line-number'), 10) : 0;
+          if (n >= s && n <= e) tbody.appendChild(tr.cloneNode(true));
+        });
+        if (tbody.children.length){
+          var t = document.createElement('table');
+          t.className = 'hljs hljs-ln';
+          t.appendChild(tbody);
+          box.innerHTML = '';
+          box.appendChild(t);
+        }
+      } catch (e) {}
+    });
+  }
+  (function wait(n){
+    if (document.querySelector('.srcfull table.hljs-ln') || n <= 0) return sliceAll();
+    setTimeout(function(){ wait(n - 1); }, 30);
+  })(25);
+})();
 </script>"""
 
 
@@ -321,22 +354,14 @@ def lang_for(path):
     return EXT_LANG.get(ext, "")
 
 
-def code_block(repo, path, start, end):
-    lines = file_lines(repo, path)
-    if lines is None:
-        return f'<div class="miss">({esc(path or "?")} not found)</div>'
+def clamp_range(lines, start, end):
     try:
         s = max(1, int(start)); e = int(end)
     except (TypeError, ValueError):
         s, e = 1, len(lines)
     if e < s or e <= 0:
         e = len(lines)
-    snippet = "\n".join(lines[s - 1:min(e, len(lines))])
-    if not snippet.strip():
-        return '<div class="miss">(empty range)</div>'
-    lang = lang_for(path)
-    cls = f' class="language-{lang}"' if lang else ""
-    return f'<pre data-start="{s}"><code{cls}>{esc(snippet)}</code></pre>'
+    return s, min(e, len(lines))
 
 
 def render(segments, title, url, prompt_text, repo, placeholder=False):
@@ -370,25 +395,61 @@ def render(segments, title, url, prompt_text, repo, placeholder=False):
         out.append(f'<nav class="toc"><div class="toc__h">Contents</div>'
                    f'<ol>{"".join(toc)}</ol></nav>')
 
+    # Embed each referenced file ONCE (deduped). Highlighting happens on the
+    # whole file (correct multi-line context); each section then shows only its
+    # slice. Slicing a fragment and highlighting that is what mis-colors code
+    # (a range cutting through a docstring leaves unbalanced quotes).
+    sources = {}   # file-string -> {"id","lines","lang"}
+
+    def source_for(fpath):
+        if fpath in sources:
+            return sources[fpath]
+        lines = file_lines(repo, fpath)
+        if lines is None:
+            sources[fpath] = None
+            return None
+        sources[fpath] = {"id": f"src-{len(sources)}", "lines": lines,
+                          "lang": lang_for(fpath)}
+        return sources[fpath]
+
     for i, seg in enumerate(segs, 1):
         f = seg.get("file", "")
         s, e = seg.get("start"), seg.get("end")
         base = os.path.basename(f) if f else ""
         loc = f"{base}:{s}-{e}" if f else ""
-        # Code shown inline (open) but height-capped, so prose and code
-        # alternate — a readable rhythm rather than a wall of text.
         code = ""
         if f:
-            code = (
-                f'<details class="seg__codewrap" open><summary>{esc(base)} · lines {s}–{e}</summary>'
-                f'<div class="seg__code">{code_block(repo, f, s, e)}</div></details>'
-            )
+            src = source_for(f)
+            if src is None:
+                inner = f'<div class="miss">({esc(f)} not found)</div>'
+            else:
+                a, b = clamp_range(src["lines"], s, e)
+                snippet = "\n".join(src["lines"][a - 1:b])
+                # Plain fallback (shown if JS/CDN fails); JS replaces it with the
+                # correctly-highlighted slice taken from the full-file render.
+                inner = (f'<div class="seg__code" data-src="{src["id"]}" '
+                         f'data-start="{a}" data-end="{b}">'
+                         f'<pre><code>{esc(snippet)}</code></pre></div>')
+            code = (f'<details class="seg__codewrap" open>'
+                    f'<summary>{esc(base)} · lines {s}–{e}</summary>{inner}</details>')
         out.append(
             f'<section class="seg" id="seg-{i}"><div class="seg__title">'
             f'<span><span class="seg__n">{i}</span>{esc(str(seg.get("title", "")))}</span>'
             f'<span class="loc">{esc(loc)}</span></div>'
             f'<div class="seg__note">{md2html(seg.get("note", ""))}</div>'
             f'{code}</section>')
+
+    # Hidden full-file sources for correct, context-aware highlighting.
+    pool = []
+    for src in sources.values():
+        if not src:
+            continue
+        cls = f' class="language-{src["lang"]}"' if src["lang"] else ""
+        body = esc("\n".join(src["lines"]))
+        pool.append(f'<pre class="srcfull" id="{src["id"]}"><code{cls}>{body}</code></pre>')
+    if pool:
+        out.append(f'<div class="srcpool" hidden aria-hidden="true">{"".join(pool)}</div>')
+
     out.append(HLJS_SCRIPTS)
     out.append("</body></html>")
     return "\n".join(out)
