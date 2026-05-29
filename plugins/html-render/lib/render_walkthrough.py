@@ -93,6 +93,26 @@ def md_inline(s):
     return s
 
 
+def _callout_kind(line):
+    """Detect a callout paragraph → (kind, body) or None. Recognizes the
+    leading '▎' rail and common emoji/keyword markers used in walkthroughs."""
+    s = line.lstrip("▎ \t").strip()
+    table = [
+        ("warn", ("⚠️", "⚠", "warning:", "caution:", "gotcha:")),
+        ("bug", ("🐞", "🐛", "bug:", "finding:", "issue:")),
+        ("tip", ("💡", "✅", "note:", "tip:", "key:", "🔑", "📌")),
+    ]
+    low = s.lower()
+    for kind, markers in table:
+        for m in markers:
+            if s.startswith(m) or low.startswith(m):
+                return kind, s[len(m):].lstrip(" :").strip() or s
+    # A bare '▎ ' rail with no marker → neutral callout.
+    if line.lstrip().startswith("▎"):
+        return "note", s
+    return None
+
+
 def md2html(text):
     out = []
     list_type = None        # None | "ul" | "ol"
@@ -131,9 +151,14 @@ def md2html(text):
             lvl = min(6, len(h.group(1)) + 2)   # # -> h3, ## -> h4, ...
             out.append(f"<h{lvl}>{md_inline(h.group(2))}</h{lvl}>")
             continue
+        callout = _callout_kind(st)
         ol = re.match(r"^(\d+)[.)]\s+(.*)", st)
         ul = re.match(r"^[-*•]\s+(.*)", st)
-        if ol:
+        if callout:
+            close_list()
+            kind, body = callout
+            out.append(f'<div class="callout callout-{kind}">{md_inline(body)}</div>')
+        elif ol:
             if list_type != "ol":
                 close_list(); out.append("<ol>"); list_type = "ol"
             out.append(f"<li>{md_inline(ol.group(2))}</li>")
@@ -170,11 +195,28 @@ h1 { font-family: var(--sans); font-weight: 700; font-size: 1.5rem; letter-spaci
 .prompt { margin: .75rem 0 1.5rem; padding: .55rem .85rem; border-left: 3px solid var(--accent);
   background: var(--accent-soft); color: var(--dim); font-size: .85rem; border-radius: 0 4px 4px 0; }
 .prompt b { color: var(--text); margin-right: .4rem; }
+/* Contents nav */
+.toc { border: 1px solid var(--border); border-radius: 10px; background: var(--surface);
+  padding: .6rem .9rem 1rem; margin-bottom: 2rem; }
+.toc__h { font-weight: 700; font-size: .82rem; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--dim); margin: .2rem 0 .5rem; }
+.toc ol { list-style: none; margin: 0; padding: 0; counter-reset: none; }
+.toc li { display: flex; justify-content: space-between; gap: 1rem; align-items: baseline;
+  padding: .15rem 0; }
+.toc a { color: var(--text); text-decoration: none; border: 0; display: flex; gap: .55rem; align-items: baseline; }
+.toc a:hover { color: var(--accent); }
+.toc__n, .seg__n { display: inline-flex; align-items: center; justify-content: center;
+  min-width: 1.5em; height: 1.5em; padding: 0 .35em; border-radius: 5px; background: var(--accent-soft);
+  color: var(--accent); font: 600 .72rem/1 var(--mono); flex: 0 0 auto; }
+.toc__loc { color: var(--dim); font: .72rem var(--mono); white-space: nowrap; }
 .seg { border: 1px solid var(--border); border-radius: 10px; margin-bottom: 1.75rem; overflow: hidden;
-  background: var(--surface); }
-.seg__title { font-family: var(--sans); font-weight: 700; font-size: 1.05rem;
+  background: var(--surface); scroll-margin-top: 1rem; }
+.seg__title { font-family: var(--sans); font-weight: 700; font-size: 1.1rem;
   padding: .7rem 1.1rem; background: var(--surface-dim); border-bottom: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
   display: flex; justify-content: space-between; gap: 1rem; align-items: baseline; }
+.seg__title > span:first-child { display: flex; gap: .6rem; align-items: baseline; }
+.seg__n { margin-top: .1rem; }
 .seg__title .loc { font-weight: 400; font-size: .78rem; color: var(--dim); font-family: var(--mono);
   white-space: nowrap; }
 /* Collapsible code under each section's prose. */
@@ -185,7 +227,8 @@ h1 { font-family: var(--sans); font-weight: 700; font-size: 1.5rem; letter-spaci
 .seg__codewrap > summary::before { content: "▸ "; }
 .seg__codewrap[open] > summary::before { content: "▾ "; }
 .seg__codewrap > summary:hover { background: var(--surface-dim); }
-.seg__code { background: var(--code-bg); overflow-x: auto; border-top: 1px solid var(--border);
+.seg__code { background: var(--code-bg); overflow: auto; max-height: 420px;
+  border-top: 1px solid var(--border);
   font-family: var(--mono); font-size: 12.5px; line-height: 1.5; }
 .seg__code pre { margin: 0; padding: .6rem .8rem; }
 .seg__code code { font-family: var(--mono); }
@@ -215,6 +258,11 @@ h1 { font-family: var(--sans); font-weight: 700; font-size: 1.5rem; letter-spaci
 .seg__note pre.cb { background: var(--code-bg); border: 1px solid var(--border); border-radius: 6px;
   padding: .6rem .8rem; overflow-x: auto; font-size: 12.5px; margin: 0 0 .85rem; }
 .seg__note pre.cb code { background: none; padding: 0; color: var(--text); }
+.seg__note .callout { margin: .75rem 0; padding: .6rem .85rem .6rem 1rem; border-radius: 6px;
+  border-left: 4px solid var(--dim); background: var(--surface-dim); font-size: 14px; }
+.callout-warn { border-left-color: #d97706; background: rgba(217,119,6,.10); }
+.callout-bug  { border-left-color: #dc2626; background: rgba(220,38,38,.10); }
+.callout-tip  { border-left-color: var(--accent); background: var(--accent-soft); }
 .empty { color: var(--dim); font-style: italic; }
 .note-banner { background: rgba(212,167,58,.14); border:1px solid rgba(212,167,58,.4);
   border-radius:6px; padding:.5rem .85rem; font-size:.85rem; margin-bottom:1.25rem; }
@@ -251,12 +299,17 @@ HLJS_SCRIPTS = """
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlightjs-line-numbers.js/2.8.0/highlightjs-line-numbers.min.js"></script>
 <script>
-document.querySelectorAll('pre code').forEach(function(el){
+// Real source blocks: highlight + numbered gutter starting at the file line.
+document.querySelectorAll('.seg__code pre code').forEach(function(el){
   try { hljs.highlightElement(el); } catch (e) {}
   try {
     var start = parseInt(el.parentElement.getAttribute('data-start') || '1', 10);
     if (window.hljs && hljs.lineNumbersBlock) hljs.lineNumbersBlock(el, {startFrom: start});
   } catch (e) {}
+});
+// Inline note snippets: highlight only — NO line numbers.
+document.querySelectorAll('.seg__note pre code').forEach(function(el){
+  try { hljs.highlightElement(el); } catch (e) {}
 });
 </script>"""
 
@@ -297,31 +350,46 @@ def render(segments, title, url, prompt_text, repo, placeholder=False):
     if placeholder:
         out.append('<div class="note-banner">Generating walkthrough… this page '
                    'will fill in automatically once the agent finishes (~1 min). Refresh.</div>')
-    elif not segments:
+        out.append("</body></html>")
+        return "\n".join(out)
+    if not segments:
         out.append('<p class="empty">No walkthrough segments were produced.</p>')
 
-    for seg in segments:
-        if not isinstance(seg, dict):
-            continue
+    segs = [s for s in segments if isinstance(s, dict)]
+
+    # Contents — makes a long walkthrough navigable instead of one long scroll.
+    if len(segs) > 1:
+        toc = []
+        for i, seg in enumerate(segs, 1):
+            f = seg.get("file", "")
+            base = os.path.basename(f) if f else ""
+            s, e = seg.get("start"), seg.get("end")
+            locb = f'<span class="toc__loc">{esc(base)}:{s}–{e}</span>' if f else ""
+            toc.append(f'<li><a href="#seg-{i}"><span class="toc__n">{i}</span>'
+                       f'{esc(str(seg.get("title", "") or "section"))}</a>{locb}</li>')
+        out.append(f'<nav class="toc"><div class="toc__h">Contents</div>'
+                   f'<ol>{"".join(toc)}</ol></nav>')
+
+    for i, seg in enumerate(segs, 1):
         f = seg.get("file", "")
         s, e = seg.get("start"), seg.get("end")
         base = os.path.basename(f) if f else ""
         loc = f"{base}:{s}-{e}" if f else ""
-        # Stacked: full-width prose first, then the code collapsed beneath it.
+        # Code shown inline (open) but height-capped, so prose and code
+        # alternate — a readable rhythm rather than a wall of text.
         code = ""
         if f:
             code = (
-                f'<details class="seg__codewrap"><summary>{esc(base)} · lines {s}–{e}</summary>'
+                f'<details class="seg__codewrap" open><summary>{esc(base)} · lines {s}–{e}</summary>'
                 f'<div class="seg__code">{code_block(repo, f, s, e)}</div></details>'
             )
         out.append(
-            '<div class="seg"><div class="seg__title">'
-            f'<span>{esc(str(seg.get("title", "")))}</span>'
+            f'<section class="seg" id="seg-{i}"><div class="seg__title">'
+            f'<span><span class="seg__n">{i}</span>{esc(str(seg.get("title", "")))}</span>'
             f'<span class="loc">{esc(loc)}</span></div>'
             f'<div class="seg__note">{md2html(seg.get("note", ""))}</div>'
-            f'{code}</div>')
-    if not placeholder:
-        out.append(HLJS_SCRIPTS)
+            f'{code}</section>')
+    out.append(HLJS_SCRIPTS)
     out.append("</body></html>")
     return "\n".join(out)
 
