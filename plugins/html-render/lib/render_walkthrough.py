@@ -196,19 +196,25 @@ h1 { font-family: var(--sans); font-weight: 700; font-size: 1.5rem; letter-spaci
   padding-right: 1em; white-space: nowrap; border-right: 1px solid var(--border); }
 .hljs-ln-code { padding-left: 1em; }
 .miss { color: var(--dim); font-style: italic; padding: .4rem 1.1rem; }
-.seg__note { padding: .9rem 1.1rem; font-size: 15px; }
-.seg__note p { margin: 0 0 .6rem; }
-.seg__note ul, .seg__note ol { margin: 0 0 .6rem; padding-left: 1.3rem; }
-.seg__note li { margin-bottom: .3rem; }
+.seg__note { padding: 1rem 1.2rem; font-size: 15px; color: var(--text); }
+.seg__note p { margin: 0 0 .75rem; }
+.seg__note > :first-child { margin-top: 0; }
+.seg__note ul, .seg__note ol { margin: .2rem 0 .85rem; padding-left: 1.4rem; }
+.seg__note li { margin-bottom: .4rem; }
+.seg__note li::marker { color: var(--accent); }
+.seg__note b, .seg__note strong { font-weight: 700; color: var(--text); }
 .seg__note h3, .seg__note h4, .seg__note h5, .seg__note h6 {
-  font-family: var(--sans); font-weight: 700; margin: .7rem 0 .35rem; line-height: 1.25; }
-.seg__note h3 { font-size: 1rem; } .seg__note h4 { font-size: .92rem; }
-.seg__note h5, .seg__note h6 { font-size: .85rem; color: var(--dim); }
-.seg__note code { font-family: var(--mono); font-size: .9em; background: rgba(127,127,127,.15);
-  padding: .05rem .3rem; border-radius: 3px; }
-.seg__note pre.cb { background: var(--code-bg); border: 1px solid var(--border); border-radius: 5px;
-  padding: .5rem .7rem; overflow-x: auto; font-size: 12px; margin: 0 0 .6rem; }
-.seg__note pre.cb code { background: none; padding: 0; }
+  font-family: var(--sans); font-weight: 700; line-height: 1.2; }
+.seg__note h3 { font-size: 1.3rem; margin: 1.1rem 0 .5rem; letter-spacing: -.01em; }
+.seg__note h4 { font-size: 1.1rem; margin: 1rem 0 .4rem; }
+.seg__note h5 { font-size: .95rem; margin: .9rem 0 .35rem; text-transform: uppercase;
+  letter-spacing: .04em; color: var(--dim); }
+.seg__note h6 { font-size: .85rem; margin: .8rem 0 .3rem; color: var(--dim); }
+.seg__note code { font-family: var(--mono); font-size: .86em; background: var(--accent-soft);
+  color: var(--accent); padding: .08rem .35rem; border-radius: 4px; }
+.seg__note pre.cb { background: var(--code-bg); border: 1px solid var(--border); border-radius: 6px;
+  padding: .6rem .8rem; overflow-x: auto; font-size: 12.5px; margin: 0 0 .85rem; }
+.seg__note pre.cb code { background: none; padding: 0; color: var(--text); }
 .empty { color: var(--dim); font-style: italic; }
 .note-banner { background: rgba(212,167,58,.14); border:1px solid rgba(212,167,58,.4);
   border-radius:6px; padding:.5rem .85rem; font-size:.85rem; margin-bottom:1.25rem; }
