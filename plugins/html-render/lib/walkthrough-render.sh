@@ -23,12 +23,14 @@ command -v claude >/dev/null 2>&1 || exit 0
 SEG="${OUT%.html}.segments.json"
 PROMPT="The transcript at $TRANSCRIPT ends with an assistant 'code walkthrough' — prose that explains source code, usually in sections that reference files and line ranges. Your job: turn it into aligned segments.
 
+The session worked in $REPO, but the actual file may live in a git worktree or subdirectory — use Grep/Glob to LOCATE the real file before reading it.
+
 Steps:
 1. Read that last assistant turn to get the walkthrough prose and its section structure.
-2. For each section, find the source file and the exact line range it covers. READ the referenced files (paths are relative to $REPO) to get accurate, current line numbers — do not trust line numbers in the prose blindly; verify against the file.
+2. For each section, find the source file and READ it to get accurate, current line numbers — do not trust line numbers in the prose blindly; verify against the file.
 3. Output ONLY a JSON array, in reading order, of objects:
-   {\"file\": \"<path relative to repo>\", \"start\": <int>, \"end\": <int>, \"title\": \"<short section heading>\", \"note\": \"<the section's walkthrough prose, as markdown — reuse the existing text>\"}
-No prose outside the JSON. If a section references no specific code, use the most relevant range you can find."
+   {\"file\": \"<ABSOLUTE path to the file you actually read>\", \"start\": <int>, \"end\": <int>, \"title\": \"<short section heading>\", \"note\": \"<the section's walkthrough prose, as markdown — reuse the existing text>\"}
+The \"file\" MUST be the absolute path you opened (e.g. /disk/u/.../worktrees/x/src/...py), so the renderer can find it regardless of cwd. No prose outside the JSON. If a section references no specific code, omit \"file\"/\"start\"/\"end\" and just give title+note."
 
 (
   printf '%s' "$PROMPT" | HTML_RENDER_CHILD=1 claude -p \

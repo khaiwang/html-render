@@ -35,6 +35,26 @@ def load_segments(path):
     return data if isinstance(data, list) else []
 
 
+def _suffix_search(repo, rel):
+    """Find a file under repo whose path ends with `rel` (handles worktrees /
+    a session cwd that differs from where the agent read the file)."""
+    if not repo or not os.path.isdir(repo):
+        return None
+    rel = rel.lstrip("./")
+    base = os.path.basename(rel)
+    matches = []
+    for dirpath, dirnames, filenames in os.walk(repo):
+        # prune heavy/noise dirs
+        dirnames[:] = [d for d in dirnames if d not in (".git", "node_modules", "__pycache__")]
+        if base in filenames:
+            full = os.path.join(dirpath, base)
+            if full.replace(os.sep, "/").endswith(rel):
+                matches.append(full)
+        if len(matches) > 8:
+            break
+    return matches[0] if matches else None
+
+
 def file_lines(repo, path):
     if not path:
         return None
@@ -52,6 +72,14 @@ def file_lines(repo, path):
             break
         except Exception:
             continue
+    if lines is None:                      # fallback: search by path suffix
+        found = _suffix_search(repo, path)
+        if found:
+            try:
+                with open(found, encoding="utf-8", errors="replace") as f:
+                    lines = f.read().split("\n")
+            except Exception:
+                lines = None
     _file_cache[key] = lines
     return lines
 
@@ -136,28 +164,35 @@ CSS = """
   --code-bg:rgba(255,255,255,.05); --note-bg:rgba(255,255,255,.04); } }
 * { box-sizing: border-box; }
 body { font-family: var(--sans); background: var(--bg); color: var(--text);
-  max-width: 1500px; margin: 2rem auto; padding: 0 1.25rem; line-height: 1.55; }
+  max-width: 920px; margin: 2rem auto; padding: 0 1.25rem; line-height: 1.6; }
 h1 { font-family: var(--sans); font-weight: 700; font-size: 1.5rem; letter-spacing:-.01em; margin: 0 0 .25rem; }
 .meta { color: var(--dim); font-size: .82rem; margin-bottom: .5rem; }
 .prompt { margin: .75rem 0 1.5rem; padding: .55rem .85rem; border-left: 3px solid var(--accent);
   background: var(--accent-soft); color: var(--dim); font-size: .85rem; border-radius: 0 4px 4px 0; }
 .prompt b { color: var(--text); margin-right: .4rem; }
-.seg { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 1.5rem; overflow: hidden;
+.seg { border: 1px solid var(--border); border-radius: 10px; margin-bottom: 1.75rem; overflow: hidden;
   background: var(--surface); }
-.seg__title { font-family: var(--sans); font-weight: 600; font-size: .95rem;
-  padding: .55rem .9rem; background: var(--surface-dim); border-bottom: 1px solid var(--border);
+.seg__title { font-family: var(--sans); font-weight: 700; font-size: 1.05rem;
+  padding: .7rem 1.1rem; background: var(--surface-dim); border-bottom: 1px solid var(--border);
   display: flex; justify-content: space-between; gap: 1rem; align-items: baseline; }
-.seg__title .loc { font-weight: 400; font-size: .78rem; color: var(--dim); font-family: var(--mono); }
-.seg__body { display: grid; grid-template-columns: 1fr 1fr; align-items: stretch; }
-@media (max-width: 950px) { .seg__body { grid-template-columns: 1fr; } }
-.seg__code { background: var(--code-bg); overflow-x: auto; border-right: 1px solid var(--border);
-  font-family: var(--mono); font-size: 12.5px; padding: .5rem 0; }
+.seg__title .loc { font-weight: 400; font-size: .78rem; color: var(--dim); font-family: var(--mono);
+  white-space: nowrap; }
+/* Collapsible code under each section's prose. */
+.seg__codewrap { border-top: 1px dashed var(--border); }
+.seg__codewrap > summary { cursor: pointer; user-select: none; list-style: none;
+  padding: .5rem 1.1rem; font-family: var(--mono); font-size: .8rem; color: var(--accent); }
+.seg__codewrap > summary::-webkit-details-marker { display: none; }
+.seg__codewrap > summary::before { content: "▸ "; }
+.seg__codewrap[open] > summary::before { content: "▾ "; }
+.seg__codewrap > summary:hover { background: var(--surface-dim); }
+.seg__code { background: var(--code-bg); overflow-x: auto; border-top: 1px solid var(--border);
+  font-family: var(--mono); font-size: 12.5px; padding: .6rem 0; line-height: 1.5; }
 .cl { display: flex; white-space: pre; }
-.cl .ln { width: 3.2em; flex: 0 0 auto; text-align: right; padding: 0 .7em; color: var(--dim);
+.cl .ln { width: 3.4em; flex: 0 0 auto; text-align: right; padding: 0 .8em; color: var(--dim);
   user-select: none; }
 .cl code { font-family: var(--mono); }
-.cl.miss { color: var(--dim); font-style: italic; padding: .3rem 1rem; }
-.seg__note { background: var(--note-bg); padding: .6rem 1rem; font-size: 13.5px; }
+.cl.miss { color: var(--dim); font-style: italic; padding: .4rem 1.1rem; }
+.seg__note { padding: .9rem 1.1rem; font-size: 15px; }
 .seg__note p { margin: 0 0 .6rem; }
 .seg__note ul, .seg__note ol { margin: 0 0 .6rem; padding-left: 1.3rem; }
 .seg__note li { margin-bottom: .3rem; }
@@ -215,15 +250,21 @@ def render(segments, title, url, prompt_text, repo, placeholder=False):
             continue
         f = seg.get("file", "")
         s, e = seg.get("start"), seg.get("end")
-        loc = f"{os.path.basename(f) if f else ''}:{s}-{e}" if f else ""
+        base = os.path.basename(f) if f else ""
+        loc = f"{base}:{s}-{e}" if f else ""
+        # Stacked: full-width prose first, then the code collapsed beneath it.
+        code = ""
+        if f:
+            code = (
+                f'<details class="seg__codewrap"><summary>{esc(base)} · lines {s}–{e}</summary>'
+                f'<div class="seg__code">{code_block(repo, f, s, e)}</div></details>'
+            )
         out.append(
             '<div class="seg"><div class="seg__title">'
             f'<span>{esc(str(seg.get("title", "")))}</span>'
             f'<span class="loc">{esc(loc)}</span></div>'
-            '<div class="seg__body">'
-            f'<div class="seg__code">{code_block(repo, f, s, e)}</div>'
             f'<div class="seg__note">{md2html(seg.get("note", ""))}</div>'
-            '</div></div>')
+            f'{code}</div>')
     out.append("</body></html>")
     return "\n".join(out)
 
