@@ -186,12 +186,16 @@ h1 { font-family: var(--sans); font-weight: 700; font-size: 1.5rem; letter-spaci
 .seg__codewrap[open] > summary::before { content: "▾ "; }
 .seg__codewrap > summary:hover { background: var(--surface-dim); }
 .seg__code { background: var(--code-bg); overflow-x: auto; border-top: 1px solid var(--border);
-  font-family: var(--mono); font-size: 12.5px; padding: .6rem 0; line-height: 1.5; }
-.cl { display: flex; white-space: pre; }
-.cl .ln { width: 3.4em; flex: 0 0 auto; text-align: right; padding: 0 .8em; color: var(--dim);
-  user-select: none; }
-.cl code { font-family: var(--mono); }
-.cl.miss { color: var(--dim); font-style: italic; padding: .4rem 1.1rem; }
+  font-family: var(--mono); font-size: 12.5px; line-height: 1.5; }
+.seg__code pre { margin: 0; padding: .6rem .8rem; }
+.seg__code code { font-family: var(--mono); }
+/* highlight.js: let our container provide the background/padding */
+.hljs { background: transparent !important; padding: 0 !important; }
+/* highlightjs-line-numbers plugin renders a table */
+.hljs-ln-numbers { text-align: right; color: var(--dim); user-select: none;
+  padding-right: 1em; white-space: nowrap; border-right: 1px solid var(--border); }
+.hljs-ln-code { padding-left: 1em; }
+.miss { color: var(--dim); font-style: italic; padding: .4rem 1.1rem; }
 .seg__note { padding: .9rem 1.1rem; font-size: 15px; }
 .seg__note p { margin: 0 0 .6rem; }
 .seg__note ul, .seg__note ol { margin: 0 0 .6rem; padding-left: 1.3rem; }
@@ -215,27 +219,72 @@ def esc(s):
     return html.escape(s, quote=False)
 
 
+# Map file extensions to highlight.js language ids. Unknown → "" (auto-detect).
+EXT_LANG = {
+    "py": "python", "js": "javascript", "jsx": "javascript", "mjs": "javascript",
+    "ts": "typescript", "tsx": "typescript", "sh": "bash", "bash": "bash", "zsh": "bash",
+    "json": "json", "html": "xml", "xml": "xml", "css": "css", "scss": "scss",
+    "c": "c", "h": "c", "cpp": "cpp", "cc": "cpp", "cxx": "cpp", "hpp": "cpp",
+    "go": "go", "rs": "rust", "java": "java", "rb": "ruby", "php": "php",
+    "yaml": "yaml", "yml": "yaml", "toml": "ini", "ini": "ini", "md": "markdown",
+    "sql": "sql", "lua": "lua", "swift": "swift", "kt": "kotlin", "scala": "scala",
+    "r": "r", "jl": "julia", "ex": "elixir", "exs": "elixir", "pl": "perl",
+    "dockerfile": "dockerfile", "make": "makefile", "vue": "xml",
+}
+
+# highlight.js assets (loaded only on pages that contain code).
+HLJS_HEAD = (
+    '<link rel="stylesheet" '
+    'href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" '
+    'media="(prefers-color-scheme: light)">'
+    '<link rel="stylesheet" '
+    'href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" '
+    'media="(prefers-color-scheme: dark)">'
+)
+HLJS_SCRIPTS = """
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlightjs-line-numbers.js/2.8.0/highlightjs-line-numbers.min.js"></script>
+<script>
+document.querySelectorAll('pre code').forEach(function(el){
+  try { hljs.highlightElement(el); } catch (e) {}
+  try {
+    var start = parseInt(el.parentElement.getAttribute('data-start') || '1', 10);
+    if (window.hljs && hljs.lineNumbersBlock) hljs.lineNumbersBlock(el, {startFrom: start});
+  } catch (e) {}
+});
+</script>"""
+
+
+def lang_for(path):
+    ext = os.path.splitext(path or "")[1].lower().lstrip(".")
+    if not ext and os.path.basename(path or "").lower() == "dockerfile":
+        ext = "dockerfile"
+    return EXT_LANG.get(ext, "")
+
+
 def code_block(repo, path, start, end):
     lines = file_lines(repo, path)
     if lines is None:
-        return f'<div class="cl miss">({esc(path or "?")} not found)</div>'
+        return f'<div class="miss">({esc(path or "?")} not found)</div>'
     try:
         s = max(1, int(start)); e = int(end)
     except (TypeError, ValueError):
         s, e = 1, len(lines)
     if e < s or e <= 0:
         e = len(lines)
-    rows = []
-    for n in range(s, min(e, len(lines)) + 1):
-        rows.append(f'<div class="cl"><span class="ln">{n}</span>'
-                    f'<code>{esc(lines[n - 1])}</code></div>')
-    return "".join(rows) or '<div class="cl miss">(empty range)</div>'
+    snippet = "\n".join(lines[s - 1:min(e, len(lines))])
+    if not snippet.strip():
+        return '<div class="miss">(empty range)</div>'
+    lang = lang_for(path)
+    cls = f' class="language-{lang}"' if lang else ""
+    return f'<pre data-start="{s}"><code{cls}>{esc(snippet)}</code></pre>'
 
 
 def render(segments, title, url, prompt_text, repo, placeholder=False):
+    head_extra = "" if placeholder else HLJS_HEAD
     out = [f'<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">'
            f'<meta name="viewport" content="width=device-width, initial-scale=1">'
-           f'<title>{esc(title)}</title><style>{CSS}</style></head><body>',
+           f'<title>{esc(title)}</title>{head_extra}<style>{CSS}</style></head><body>',
            f"<h1>{esc(title)}</h1>"]
     if prompt_text:
         out.append(f'<div class="prompt"><b>Prompt</b>{esc(prompt_text)}</div>')
@@ -265,6 +314,8 @@ def render(segments, title, url, prompt_text, repo, placeholder=False):
             f'<span class="loc">{esc(loc)}</span></div>'
             f'<div class="seg__note">{md2html(seg.get("note", ""))}</div>'
             f'{code}</div>')
+    if not placeholder:
+        out.append(HLJS_SCRIPTS)
     out.append("</body></html>")
     return "\n".join(out)
 
