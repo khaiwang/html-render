@@ -230,14 +230,18 @@ h1 { font-family: var(--sans); font-weight: 700; font-size: 1.5rem; letter-spaci
 .seg__code { background: var(--code-bg); overflow: auto; max-height: 420px;
   border-top: 1px solid var(--border);
   font-family: var(--mono); font-size: 12.5px; line-height: 1.5; }
-.seg__code pre { margin: 0; padding: .6rem .8rem; }
+.seg__code pre { margin: 0; padding: .6rem .8rem; white-space: pre; }
 .seg__code code { font-family: var(--mono); }
 /* highlight.js: let our container provide the background/padding */
 .hljs { background: transparent !important; padding: 0 !important; }
-/* highlightjs-line-numbers plugin renders a table */
+/* highlightjs-line-numbers plugin renders a table. Our sliced copies live in a
+   <div> (not a <pre>), so the code cell MUST set white-space:pre itself or
+   leading indentation collapses. */
+.seg__code table.hljs-ln { border-collapse: collapse; width: 100%; margin: .6rem 0; }
+.hljs-ln td { padding: 0; border: 0; vertical-align: top; }
 .hljs-ln-numbers { text-align: right; color: var(--dim); user-select: none;
-  padding-right: 1em; white-space: nowrap; border-right: 1px solid var(--border); }
-.hljs-ln-code { padding-left: 1em; }
+  padding: 0 1em 0 .8rem; white-space: nowrap; border-right: 1px solid var(--border); }
+.hljs-ln-code { white-space: pre; padding: 0 .8rem 0 1em; }
 .miss { color: var(--dim); font-style: italic; padding: .4rem 1.1rem; }
 .srcpool { display: none; }
 .seg__note { padding: 1rem 1.2rem; font-size: 15px; color: var(--text); }
