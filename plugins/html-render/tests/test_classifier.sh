@@ -6,7 +6,7 @@ set -u
 PASS=0
 FAIL=0
 FIXTURES="$(cd "$(dirname "$0")/fixtures" && pwd)"
-HOOK="$(cd "$(dirname "$0")/.." && pwd)/plugins/html-render/hooks/stop-classifier.sh"
+HOOK="$(cd "$(dirname "$0")/.." && pwd)/hooks/stop-classifier.sh"
 
 # Extract just the classifier python by sourcing the env and running an inline test.
 # Simpler: we re-implement just the python block here, mirroring the hook exactly.

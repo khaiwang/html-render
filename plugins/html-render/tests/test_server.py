@@ -14,7 +14,7 @@ import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SERVER = ROOT / "plugins" / "html-render" / "server" / "server.py"
+SERVER = ROOT / "server" / "server.py"
 
 
 def free_port() -> int:

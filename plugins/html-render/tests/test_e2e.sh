@@ -8,7 +8,7 @@ set -u
 PASS=0
 FAIL=0
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-PLUGIN="$ROOT/plugins/html-render"
+PLUGIN="$ROOT"
 
 # Isolated env
 WORK="$(mktemp -d -t htmlrender-e2e.XXXX)"
