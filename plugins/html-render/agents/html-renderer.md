@@ -72,7 +72,9 @@ Then, regardless of source:
 
 ### narrative mode
 
-1. Read the transcript file. Locate the most recent assistant message (the last `"role": "assistant"` run). Render THAT — never your own instructions. Also find the **eliciting user prompt**: the last *genuine human* message before that assistant turn. Claude Code records tool results as `role: "user"` too, so skip any message whose content is a `tool_result`; you want the human's actual words.
+1. Read your **Source**.
+   - **Auto-render path (default):** the Source is a small markdown file the dispatcher already extracted — it has a `# Eliciting prompt` section and a `# Assistant turn to render` section. Render the assistant-turn section as the page body; use the eliciting-prompt section for `{{PROMPT}}`. Do NOT go read the full transcript — the extraction is done for you (the transcript can be many MB; reading it is what makes renders slow).
+   - **/render command path:** if the Source is a raw transcript JSONL instead, locate the most recent assistant message (the last `"role": "assistant"` run) and render THAT, and find the eliciting prompt (the last genuine human message before it — skip any whose content is a `tool_result`). Never render your own instructions.
 2. Identify document structure: H2/H3 headings, numbered lists, code blocks, tables.
 3. Pick a template:
    - `templates/plan.html` for plans, designs, implementation guides, recaps

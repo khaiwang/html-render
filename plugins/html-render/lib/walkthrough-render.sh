@@ -19,8 +19,9 @@ if [ "${1:-}" = "__bg" ]; then
   PYW="$PLUGIN_DIR/lib/render_walkthrough.py"
   SEG="${OUT%.html}.segments.json"; RLOG="${OUT%.html}.render.log"
   echo "[$(date -Iseconds)] walkthrough stage 2 → $URL"
+  MODEL="${HTML_RENDER_MODEL:-sonnet}"
   printf '%s' "${HTML_RENDER_PROMPT:-}" | HTML_RENDER_CHILD=1 claude -p \
-    --permission-mode default --allowedTools "Read Grep Glob" >"$SEG" 2>>"$RLOG"
+    ${MODEL:+--model "$MODEL"} --permission-mode default --allowedTools "Read Grep Glob" >"$SEG" 2>>"$RLOG"
   if [ -s "$SEG" ]; then
     python3 "$PYW" --segments "$SEG" --out "$OUT" --url "$URL" \
       --repo "$REPO" --transcript "$TRANSCRIPT"
@@ -40,13 +41,17 @@ python3 "$PYW" --out "$OUT" --url "$URL" --transcript "$TRANSCRIPT" --placeholde
 
 command -v claude >/dev/null 2>&1 || exit 0
 
+# Extract the last turn to a tiny file (the full transcript is often multi-MB).
+SRC="${OUT%.html}.source.md"
+python3 "$PLUGIN_DIR/lib/extract_turn.py" "$TRANSCRIPT" "$SRC" >/dev/null 2>&1 || SRC="$TRANSCRIPT"
+
 SEG="${OUT%.html}.segments.json"
-PROMPT="The transcript at $TRANSCRIPT ends with an assistant 'code walkthrough' — prose that explains source code, usually in sections that reference files and line ranges. Your job: turn it into aligned segments.
+PROMPT="The file $SRC contains an assistant 'code walkthrough' — prose that explains source code, usually in sections that reference files and line ranges. Your job: turn it into aligned segments.
 
 The session worked in $REPO, but the actual file may live in a git worktree or subdirectory — use Grep/Glob to LOCATE the real file before reading it.
 
 Steps:
-1. Read that last assistant turn to get the walkthrough prose and its section structure.
+1. Read $SRC to get the walkthrough prose and its section structure (do NOT read the full transcript).
 2. For each section, find the source file and READ it to get accurate, current line numbers — do not trust line numbers in the prose blindly; verify against the file.
 3. Output ONLY a JSON array, in reading order, of objects:
    {\"file\": \"<ABSOLUTE path to the file you actually read>\", \"start\": <int>, \"end\": <int>, \"title\": \"<short section heading>\", \"note\": \"<the section's walkthrough prose, as markdown — reuse the existing text>\"}

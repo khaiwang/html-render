@@ -21,8 +21,11 @@ if [ "${1:-}" = "__bg" ]; then
   OUT="$2"; URL="$3"; RELATED_URL="${4:-}"; RELATED_LABEL="${5:-← Code diff}"
   RLOG="${OUT%.html}.render.log"
   echo "[$(date -Iseconds)] narrative stage 2 → $URL"
+  # Render is a mechanical format-to-HTML task — default to a fast model.
+  # Override with HTML_RENDER_MODEL (e.g. opus for max quality, haiku for speed).
+  MODEL="${HTML_RENDER_MODEL:-sonnet}"
   printf '%s' "${HTML_RENDER_PROMPT:-}" | HTML_RENDER_CHILD=1 claude -p \
-    --permission-mode default \
+    ${MODEL:+--model "$MODEL"} --permission-mode default \
     --allowedTools "Read Write Edit Glob Grep" >>"$RLOG" 2>&1
   rc=$?
 
@@ -118,9 +121,16 @@ PY
 
 command -v claude >/dev/null 2>&1 || exit 0
 
+# Extract ONLY the last turn (+ eliciting prompt) to a tiny file. The full
+# transcript is often multi-MB; handing the renderer that is the dominant cause
+# of slow renders (it reads ~hundreds of K tokens). Fall back to the transcript
+# if extraction fails.
+SRC="${OUT%.html}.source.md"
+python3 "$PLUGIN_DIR/lib/extract_turn.py" "$TRANSCRIPT" "$SRC" >/dev/null 2>&1 || SRC="$TRANSCRIPT"
+
 PROMPT="You are the html-renderer subagent. Read the instructions at $PLUGIN_DIR/agents/html-renderer.md.
 
-Source: the Claude Code transcript at $TRANSCRIPT (read the last assistant turn).
+Source: $SRC — a small markdown file with the eliciting user prompt and the assistant turn to render. Read THAT file; do NOT read the full transcript.
 Mode: narrative
 Output: $OUT
 Server port: ${HTML_RENDER_PORT:-7777}

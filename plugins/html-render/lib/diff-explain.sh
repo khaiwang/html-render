@@ -26,9 +26,10 @@ if [ "${1:-}" = "__bg" ]; then
   REL_ARGS=()
   [ -n "$RELATED_URL" ] && REL_ARGS=(--related-url "$RELATED_URL" --related-label "$RELATED_LABEL")
   echo "[$(date -Iseconds)] diff-explain stage 2: $NHUNKS hunk(s) → $URL"
+  MODEL="${HTML_RENDER_MODEL:-sonnet}"
   # Capable explorer: read + search + read-only-ish git, but no Write/WebFetch.
   printf '%s' "${HTML_RENDER_PROMPT:-}" | HTML_RENDER_CHILD=1 claude -p \
-    --permission-mode default \
+    ${MODEL:+--model "$MODEL"} --permission-mode default \
     --allowedTools "Read Grep Glob Bash(git *)" >"$EXPL" 2>>"$RLOG"
   if [ -s "$EXPL" ]; then
     python3 "$PY" --diff "$DIFF" --out "$OUT" --url "$URL" \
