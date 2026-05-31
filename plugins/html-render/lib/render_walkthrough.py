@@ -176,95 +176,104 @@ def md2html(text):
 
 
 # Core palette/fonts/reset come from /_assets/base.css (linked in the head).
-# Only walkthrough-specific tokens live here.
+# Layout mirrors the narrative template: sticky-sidebar TOC + paper article.
 CSS = """
-:root {
-  --code-bg:rgba(130,130,140,.06); --note-bg:rgba(130,130,140,.05); }
-@media (prefers-color-scheme: dark) { :root {
-  --code-bg:rgba(255,255,255,.05); --note-bg:rgba(255,255,255,.04); } }
-body { font-family: var(--sans); background: var(--bg); color: var(--text);
-  max-width: 920px; margin: 2rem auto; padding: 0 1.25rem; line-height: 1.6; }
-h1 { font-family: var(--sans); font-weight: 700; font-size: 1.5rem; letter-spacing:-.01em; margin: 0 0 .25rem; }
-.meta { color: var(--dim); font-size: .82rem; margin-bottom: .5rem; }
-.prompt { margin: .75rem 0 1.5rem; padding: .55rem .85rem; border-left: 3px solid var(--accent);
-  background: var(--accent-soft); color: var(--dim); font-size: .85rem; border-radius: 0 4px 4px 0; }
-.prompt b { color: var(--text); margin-right: .4rem; }
-/* Contents nav */
-.toc { border: 1px solid var(--border); border-radius: 10px; background: var(--surface);
-  padding: .6rem .9rem 1rem; margin-bottom: 2rem; }
-.toc__h { font-weight: 700; font-size: .82rem; text-transform: uppercase; letter-spacing: .06em;
-  color: var(--dim); margin: .2rem 0 .5rem; }
-.toc ol { list-style: none; margin: 0; padding: 0; counter-reset: none; }
-.toc li { display: flex; justify-content: space-between; gap: 1rem; align-items: baseline;
-  padding: .15rem 0; }
-.toc a { color: var(--text); text-decoration: none; border: 0; display: flex; gap: .55rem; align-items: baseline; }
-.toc a:hover { color: var(--accent); }
-.toc__n, .seg__n { display: inline-flex; align-items: center; justify-content: center;
-  min-width: 1.5em; height: 1.5em; padding: 0 .35em; border-radius: 5px; background: var(--accent-soft);
-  color: var(--accent); font: 600 .72rem/1 var(--mono); flex: 0 0 auto; }
-.toc__loc { color: var(--dim); font: .72rem var(--mono); white-space: nowrap; }
-.seg { border: 1px solid var(--border); border-radius: 10px; margin-bottom: 1.75rem; overflow: hidden;
-  background: var(--surface); scroll-margin-top: 1rem; }
-.seg__title { font-family: var(--sans); font-weight: 700; font-size: 1.1rem;
-  padding: .7rem 1.1rem; background: var(--surface-dim); border-bottom: 1px solid var(--border);
-  border-left: 3px solid var(--accent);
-  display: flex; justify-content: space-between; gap: 1rem; align-items: baseline; }
-.seg__title > span:first-child { display: flex; gap: .6rem; align-items: baseline; }
-.seg__n { margin-top: .1rem; }
-.seg__title .loc { font-weight: 400; font-size: .78rem; color: var(--dim); font-family: var(--mono);
-  white-space: nowrap; }
-/* Collapsible code under each section's prose. */
-.seg__codewrap { border-top: 1px dashed var(--border); }
-.seg__codewrap > summary { cursor: pointer; user-select: none; list-style: none;
-  padding: .5rem 1.1rem; font-family: var(--mono); font-size: .8rem; color: var(--accent); }
-.seg__codewrap > summary::-webkit-details-marker { display: none; }
-.seg__codewrap > summary::before { content: "▸ "; }
-.seg__codewrap[open] > summary::before { content: "▾ "; }
-.seg__codewrap > summary:hover { background: var(--surface-dim); }
-.seg__code { background: var(--code-bg); overflow: auto; max-height: 420px;
-  border-top: 1px solid var(--border);
-  font-family: var(--mono); font-size: 12.5px; line-height: 1.5; }
-.seg__code pre { margin: 0; padding: .6rem .8rem; white-space: pre; }
-.seg__code code { font-family: var(--mono); }
+:root { --max:820px; }
+body { margin:0; background:var(--bg); color:var(--text); font-family:var(--sans);
+  font-size:16px; line-height:1.65; -webkit-font-smoothing:antialiased; }
+
+/* shell */
+.shell { display:grid; grid-template-columns:268px minmax(0,1fr); max-width:1480px; margin:0 auto; }
+.toc { position:sticky; top:0; align-self:start; height:100vh; overflow-y:auto;
+  padding:38px 22px 40px 30px; border-right:1px solid var(--border);
+  background:linear-gradient(180deg,#fbfaf7,#f5f4f0); }
+.toc__brand { font-family:var(--display); font-weight:700; font-size:.74rem; letter-spacing:.16em;
+  text-transform:uppercase; color:var(--accent); margin:0 0 4px; }
+.toc__sub { font-size:.78rem; color:var(--text-dim); margin:0 0 22px; line-height:1.4; }
+.toc nav { display:flex; flex-direction:column; gap:1px; }
+.toc a { display:flex; gap:8px; align-items:baseline; text-decoration:none; color:var(--text-soft);
+  font-size:.84rem; padding:6px 10px; border-radius:7px; border-left:2px solid transparent;
+  transition:background .15s,color .15s,border-color .15s; }
+.toc a:hover { background:#eef0eb; color:var(--text); }
+.toc a.active { background:var(--accent-soft); color:var(--accent); border-left-color:var(--accent); font-weight:600; }
+.toc a .num { font-family:var(--mono); font-size:.72rem; color:var(--text-dim); flex:0 0 auto; }
+.toc a.active .num { color:var(--accent); }
+.toc a .loc { display:block; font-family:var(--mono); font-size:.68rem; color:var(--text-dim); margin-top:1px; }
+
+.main { min-width:0; }
+.article { background:var(--surface); min-height:100vh; padding:56px clamp(24px,4vw,64px) 120px; }
+.prose { max-width:var(--max); margin:0 auto; }
+
+h1.title { font-family:var(--display); font-weight:700; font-size:clamp(1.8rem,3.4vw,2.5rem);
+  line-height:1.1; letter-spacing:-.018em; margin:0 0 16px; }
+.prompt { margin:0 0 1.8rem; padding:.6rem .9rem; border-left:3px solid var(--accent);
+  background:var(--accent-soft); color:var(--text-soft); font-size:.85rem; line-height:1.5; border-radius:0 6px 6px 0; }
+.prompt b { color:var(--text); margin-right:.4rem; }
+.note-banner { background:var(--amber-soft); border:1px solid var(--amber-line); border-radius:8px;
+  padding:.6rem .9rem; font-size:.88rem; margin-bottom:1.25rem; }
+.empty { color:var(--text-dim); font-style:italic; }
+
+/* segments — narrative-primary: prose first, code collapsible under it */
+.seg { margin-bottom:2.4em; scroll-margin-top:24px; }
+.seg__title { font-family:var(--display); font-weight:700; font-size:1.4rem; letter-spacing:-.01em;
+  margin:0 0 .5em; padding-bottom:.25em; border-bottom:1px solid var(--border);
+  display:flex; gap:.5em; align-items:baseline; }
+.seg__n { font-family:var(--mono); font-size:1rem; color:var(--accent); font-weight:600; }
+.seg__title .loc { margin-left:auto; font-weight:400; font-size:.74rem; color:var(--text-dim);
+  font-family:var(--mono); white-space:nowrap; }
+.seg__note { font-size:16px; color:var(--text); }
+.seg__note p { margin:1em 0; } .seg__note > :first-child { margin-top:0; }
+.seg__note ul, .seg__note ol { margin:1em 0; padding-left:1.35em; }
+.seg__note li { margin:.45em 0; } .seg__note li::marker { color:var(--accent); }
+.seg__note b, .seg__note strong { font-weight:700; color:var(--text); }
+.seg__note a { color:var(--accent); text-decoration:none; border-bottom:1px solid var(--accent-line); }
+.seg__note a:hover { border-bottom-color:var(--accent); }
+.seg__note h3, .seg__note h4, .seg__note h5, .seg__note h6 {
+  font-family:var(--display); font-weight:600; line-height:1.2; }
+.seg__note h3 { font-size:1.18rem; margin:1.4em 0 .4em; }
+.seg__note h4 { font-size:1.04rem; margin:1.2em 0 .35em; }
+.seg__note h5 { font-size:.9rem; margin:1em 0 .3em; text-transform:uppercase; letter-spacing:.04em; color:var(--text-dim); }
+.seg__note h6 { font-size:.85rem; margin:.9em 0 .3em; color:var(--text-dim); }
+.seg__note code { font-family:var(--mono); font-size:.86em; background:var(--code-bg);
+  border:1px solid var(--border-soft); border-radius:5px; padding:1px 6px; color:#3a4256; white-space:nowrap; }
+.seg__note pre.cb { background:var(--code-bg); border:1px solid var(--border); border-radius:10px;
+  padding:14px 18px; overflow-x:auto; font-size:.84rem; margin:1.2em 0; }
+.seg__note pre.cb code { background:none; border:0; padding:0; color:#41485c; white-space:pre; }
+
+/* callouts (markdown ▎ rails → boxes) */
+.seg__note .callout { margin:1.3em 0; border-radius:12px; padding:14px 18px 12px; border:1px solid var(--border);
+  background:#fbfaf7; font-size:.95rem; }
+.callout-warn { background:var(--amber-soft); border-color:var(--amber-line); border-left:4px solid var(--amber); }
+.callout-bug { background:var(--red-soft); border-color:var(--red-line); border-left:4px solid var(--red); }
+.callout-tip { background:var(--accent-soft); border-color:var(--accent-line); border-left:4px solid var(--accent); }
+.callout-note { border-left:4px solid var(--text-dim); }
+
+/* collapsible code */
+.seg__codewrap { margin:1.2em 0 0; border:1px solid var(--border); border-radius:11px; overflow:hidden; background:var(--code-bg); }
+.seg__codewrap > summary { cursor:pointer; user-select:none; list-style:none; padding:.55rem 1rem;
+  font-family:var(--mono); font-size:.78rem; color:var(--accent); background:#fbfaf7; border-bottom:1px solid var(--border); }
+.seg__codewrap:not([open]) > summary { border-bottom:0; }
+.seg__codewrap > summary::-webkit-details-marker { display:none; }
+.seg__codewrap > summary::before { content:"▸ "; }
+.seg__codewrap[open] > summary::before { content:"▾ "; }
+.seg__codewrap > summary:hover { color:var(--text); }
+.seg__code { overflow:auto; max-height:460px; font-family:var(--mono); font-size:12.5px; line-height:1.55; }
+.seg__code pre { margin:0; padding:.7rem .9rem; white-space:pre; }
+.seg__code code { font-family:var(--mono); }
 /* highlight.js: let our container provide the background/padding */
-.hljs { background: transparent !important; padding: 0 !important; }
+.hljs { background:transparent !important; padding:0 !important; }
 /* highlightjs-line-numbers plugin renders a table. Our sliced copies live in a
    <div> (not a <pre>), so the code cell MUST set white-space:pre itself or
    leading indentation collapses. */
-.seg__code table.hljs-ln { border-collapse: collapse; width: 100%; margin: .6rem 0; }
-.hljs-ln td { padding: 0; border: 0; vertical-align: top; }
-.hljs-ln-numbers { text-align: right; color: var(--dim); user-select: none;
-  padding: 0 1em 0 .8rem; white-space: nowrap; border-right: 1px solid var(--border); }
-.hljs-ln-code { white-space: pre; padding: 0 .8rem 0 1em; }
-.miss { color: var(--dim); font-style: italic; padding: .4rem 1.1rem; }
-.srcpool { display: none; }
-.seg__note { padding: 1rem 1.2rem; font-size: 15px; color: var(--text); }
-.seg__note p { margin: 0 0 .75rem; }
-.seg__note > :first-child { margin-top: 0; }
-.seg__note ul, .seg__note ol { margin: .2rem 0 .85rem; padding-left: 1.4rem; }
-.seg__note li { margin-bottom: .4rem; }
-.seg__note li::marker { color: var(--accent); }
-.seg__note b, .seg__note strong { font-weight: 700; color: var(--text); }
-.seg__note h3, .seg__note h4, .seg__note h5, .seg__note h6 {
-  font-family: var(--sans); font-weight: 700; line-height: 1.2; }
-.seg__note h3 { font-size: 1.3rem; margin: 1.1rem 0 .5rem; letter-spacing: -.01em; }
-.seg__note h4 { font-size: 1.1rem; margin: 1rem 0 .4rem; }
-.seg__note h5 { font-size: .95rem; margin: .9rem 0 .35rem; text-transform: uppercase;
-  letter-spacing: .04em; color: var(--dim); }
-.seg__note h6 { font-size: .85rem; margin: .8rem 0 .3rem; color: var(--dim); }
-.seg__note code { font-family: var(--mono); font-size: .86em; background: var(--accent-soft);
-  color: var(--accent); padding: .08rem .35rem; border-radius: 4px; }
-.seg__note pre.cb { background: var(--code-bg); border: 1px solid var(--border); border-radius: 6px;
-  padding: .6rem .8rem; overflow-x: auto; font-size: 12.5px; margin: 0 0 .85rem; }
-.seg__note pre.cb code { background: none; padding: 0; color: var(--text); }
-.seg__note .callout { margin: .75rem 0; padding: .6rem .85rem .6rem 1rem; border-radius: 6px;
-  border-left: 4px solid var(--dim); background: var(--surface-dim); font-size: 14px; }
-.callout-warn { border-left-color: #d97706; background: rgba(217,119,6,.10); }
-.callout-bug  { border-left-color: #dc2626; background: rgba(220,38,38,.10); }
-.callout-tip  { border-left-color: var(--accent); background: var(--accent-soft); }
-.empty { color: var(--dim); font-style: italic; }
-.note-banner { background: rgba(212,167,58,.14); border:1px solid rgba(212,167,58,.4);
-  border-radius:6px; padding:.5rem .85rem; font-size:.85rem; margin-bottom:1.25rem; }
+.seg__code table.hljs-ln { border-collapse:collapse; width:100%; margin:.6rem 0; }
+.hljs-ln td { padding:0; border:0; vertical-align:top; }
+.hljs-ln-numbers { text-align:right; color:var(--text-dim); user-select:none;
+  padding:0 1em 0 .8rem; white-space:nowrap; border-right:1px solid var(--border); }
+.hljs-ln-code { white-space:pre; padding:0 .8rem 0 1em; }
+.miss { color:var(--text-dim); font-style:italic; padding:.6rem .9rem; }
+.srcpool { display:none; }
+
+@media(max-width:1000px){ .shell { grid-template-columns:1fr; } .toc { display:none; } }
 """
 
 
@@ -285,14 +294,10 @@ EXT_LANG = {
     "dockerfile": "dockerfile", "make": "makefile", "vue": "xml",
 }
 
-# highlight.js assets (loaded only on pages that contain code).
+# highlight.js theme (light-only, to match the page palette).
 HLJS_HEAD = (
     '<link rel="stylesheet" '
-    'href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" '
-    'media="(prefers-color-scheme: light)">'
-    '<link rel="stylesheet" '
-    'href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" '
-    'media="(prefers-color-scheme: dark)">'
+    'href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-light.min.css">'
 )
 HLJS_SCRIPTS = """
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
@@ -342,6 +347,26 @@ HLJS_SCRIPTS = """
     setTimeout(function(){ wait(n - 1); }, 30);
   })(25);
 })();
+// Sidebar scroll-spy: highlight the section currently in view.
+(function(){
+  var nav = document.getElementById('toc-nav');
+  if (!nav) return;
+  var links = Array.prototype.slice.call(nav.querySelectorAll('a'));
+  var map = {}, targets = [];
+  links.forEach(function(a){
+    var id = a.getAttribute('href').slice(1);
+    var t = document.getElementById(id);
+    if (t){ map[id] = a; targets.push(t); }
+  });
+  function onScroll(){
+    var top = window.scrollY + 120, cur = null;
+    targets.forEach(function(t){ if (t.offsetTop <= top) cur = t.id; });
+    links.forEach(function(a){ a.classList.remove('active'); });
+    if (cur && map[cur]) map[cur].classList.add('active');
+  }
+  window.addEventListener('scroll', onScroll, {passive:true});
+  onScroll();
+})();
 </script>"""
 
 
@@ -364,36 +389,41 @@ def clamp_range(lines, start, end):
 
 def render(segments, title, url, prompt_text, repo, placeholder=False):
     head_extra = "" if placeholder else HLJS_HEAD
-    out = [f'<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">'
-           f'<meta name="viewport" content="width=device-width, initial-scale=1">'
-           f'<title>{esc(title)}</title>'
-           f'<link rel="stylesheet" href="/_assets/base.css">'
-           f'{head_extra}<style>{CSS}</style></head><body>',
-           f"<h1>{esc(title)}</h1>"]
-    if prompt_text:
-        out.append(f'<div class="prompt"><b>Prompt</b>{esc(prompt_text)}</div>')
+    head = (f'<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">'
+            f'<meta name="viewport" content="width=device-width, initial-scale=1">'
+            f'<title>{esc(title)}</title>'
+            f'<link rel="stylesheet" href="/_assets/base.css">'
+            f'{head_extra}<style>{CSS}</style></head><body>')
+
     if placeholder:
-        out.append('<div class="note-banner">Generating walkthrough… this page '
-                   'will fill in automatically once the agent finishes (~1 min). Refresh.</div>')
-        out.append("</body></html>")
-        return "\n".join(out)
-    if not segments:
-        out.append('<p class="empty">No walkthrough segments were produced.</p>')
+        return (head + '<div class="shell"><main class="main"><article class="article">'
+                f'<div class="prose"><h1 class="title">{esc(title)}</h1>'
+                '<div class="note-banner">Generating walkthrough… this page will fill in '
+                'automatically once the agent finishes (~1 min). Refresh.</div>'
+                '</div></article></main></div></body></html>')
 
     segs = [s for s in segments if isinstance(s, dict)]
 
-    # Contents — makes a long walkthrough navigable instead of one long scroll.
-    if len(segs) > 1:
-        toc = []
-        for i, seg in enumerate(segs, 1):
-            f = seg.get("file", "")
-            base = os.path.basename(f) if f else ""
-            s, e = seg.get("start"), seg.get("end")
-            locb = f'<span class="toc__loc">{esc(base)}:{s}–{e}</span>' if f else ""
-            toc.append(f'<li><a href="#seg-{i}"><span class="toc__n">{i}</span>'
-                       f'{esc(str(seg.get("title", "") or "section"))}</a>{locb}</li>')
-        out.append(f'<nav class="toc"><div class="toc__h">Contents</div>'
-                   f'<ol>{"".join(toc)}</ol></nav>')
+    # Sticky sidebar TOC, built from the segments (numbers + file:line locs).
+    nav = []
+    for i, seg in enumerate(segs, 1):
+        f = seg.get("file", "")
+        base = os.path.basename(f) if f else ""
+        s, e = seg.get("start"), seg.get("end")
+        locb = f'<span class="loc">{esc(base)}:{s}–{e}</span>' if f else ""
+        nav.append(f'<a href="#seg-{i}"><span class="num">{i}</span>'
+                   f'<span>{esc(str(seg.get("title", "") or "section"))}{locb}</span></a>')
+    sidebar = (f'<aside class="toc"><p class="toc__brand">Walkthrough</p>'
+               f'<p class="toc__sub">{esc(title)}</p>'
+               f'<nav id="toc-nav">{"".join(nav)}</nav></aside>')
+
+    out = [head, '<div class="shell">', sidebar,
+           '<main class="main"><article class="article"><div class="prose">',
+           f'<h1 class="title">{esc(title)}</h1>']
+    if prompt_text:
+        out.append(f'<div class="prompt"><b>Prompt</b>{esc(prompt_text)}</div>')
+    if not segs:
+        out.append('<p class="empty">No walkthrough segments were produced.</p>')
 
     # Embed each referenced file ONCE (deduped). Highlighting happens on the
     # whole file (correct multi-line context); each section then shows only its
@@ -433,11 +463,14 @@ def render(segments, title, url, prompt_text, repo, placeholder=False):
             code = (f'<details class="seg__codewrap" open>'
                     f'<summary>{esc(base)} · lines {s}–{e}</summary>{inner}</details>')
         out.append(
-            f'<section class="seg" id="seg-{i}"><div class="seg__title">'
-            f'<span><span class="seg__n">{i}</span>{esc(str(seg.get("title", "")))}</span>'
+            f'<section class="seg" id="seg-{i}">'
+            f'<div class="seg__title"><span class="seg__n">{i}</span>'
+            f'{esc(str(seg.get("title", "")))}'
             f'<span class="loc">{esc(loc)}</span></div>'
             f'<div class="seg__note">{md2html(seg.get("note", ""))}</div>'
             f'{code}</section>')
+
+    out.append('</div></article></main></div>')  # close .prose / .article / .main / .shell
 
     # Hidden full-file sources for correct, context-aware highlighting.
     pool = []

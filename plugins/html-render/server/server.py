@@ -52,19 +52,34 @@ HOME_TITLE = os.environ.get("HTML_RENDER_TITLE") or _default_title()
 # inline in each page. --dim is an alias of --text-dim so both names resolve to
 # one source value across renderers and templates.
 BASE_CSS = """
-@import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
-:root { color-scheme: light dark;
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+:root {
+  color-scheme: light;
   --sans:'Hanken Grotesk',ui-sans-serif,system-ui,-apple-system,sans-serif;
-  --serif:'Hanken Grotesk',ui-sans-serif,system-ui,-apple-system,sans-serif;
+  --display:'Bricolage Grotesque','Hanken Grotesk',ui-sans-serif,system-ui,sans-serif;
+  --serif:var(--display);
   --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-  --bg:#fafafa; --surface:#ffffff; --surface-dim:#f1f1f3;
-  --border:#e3e3e8; --text:#1a1a1f; --text-dim:#6b7280; --dim:var(--text-dim);
-  --accent:#2563eb; --accent-soft:rgba(37,99,235,.10); }
-@media (prefers-color-scheme: dark) { :root {
-  --bg:#161618; --surface:#1d1d20; --surface-dim:#26262a;
-  --border:rgba(255,255,255,.11); --text:#e9e9ec; --text-dim:#9aa0a6;
-  --accent:#7aa2f7; --accent-soft:rgba(122,162,247,.14); } }
+  /* warm editorial palette (light-only) */
+  --bg:#f7f6f3;
+  --surface:#ffffff;        /* paper */
+  --surface-dim:#f4f3ef;    /* code / dim fills */
+  --surface-recessed:#f1f0ea;
+  --border:#e3e1da;         /* line */
+  --border-soft:#eeede8;
+  --text:#1d2230;           /* ink */
+  --text-soft:#4a5165;
+  --text-dim:#737b8f;
+  --dim:var(--text-dim);
+  --accent:#2f6d4f;         /* deep green */
+  --accent-soft:#e3f0e8;
+  --accent-line:#bcd9c8;
+  --amber:#9a6b16; --amber-soft:#fbf2dd; --amber-line:#ecd9a8;
+  --blue:#2b5d86;  --blue-soft:#e6eff7;  --blue-line:#cfdfee;
+  --red:#b23a3a;   --red-soft:#fbe9e9;   --red-line:#edc4c4;
+  --code-bg:#f4f3ef;
+}
 * { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
 """
 
 # Index-page-only rules. Core tokens/fonts/reset come from BASE_CSS (linked).
@@ -73,11 +88,11 @@ body {
   font-family: var(--sans); background: var(--bg); color: var(--text);
   max-width: 900px; margin: 2.5rem auto; padding: 0 1.5rem; line-height: 1.55;
 }
-h1 { font-family: var(--sans); font-weight: 700; font-size: 1.6rem; letter-spacing:-.02em; margin-bottom: 0.25rem; }
+h1 { font-family: var(--display); font-weight: 700; font-size: 1.7rem; letter-spacing:-.02em; margin-bottom: 0.25rem; }
 .sub { color: var(--dim); font-size: 0.82rem; margin-bottom: 2.5rem; font-family: var(--mono); }
 .project { margin-bottom: 2.5rem; }
 .project__name {
-  font-family: var(--sans); font-size: 1.05rem; font-weight: 700;
+  font-family: var(--display); font-size: 1.05rem; font-weight: 700;
   border-bottom: 1px solid var(--border);
   padding-bottom: 0.35rem;
   margin-bottom: 1rem;

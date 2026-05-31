@@ -77,15 +77,26 @@ Then, regardless of source:
 3. Pick a template:
    - `templates/plan.html` for plans, designs, implementation guides, recaps
    - `templates/review.html` for reviews, audits, code analyses (use Good/Bad/Ugly/Question card variants)
-4. Map the source content to sections:
-   - `{{PROMPT}}` → the eliciting user prompt from step 1, as `<div class="prompt"><b>Prompt</b>ESCAPED_TEXT</div>`: HTML-escape it, collapse to one line, and truncate to ~280 chars with `…` if longer. If you genuinely cannot find a human prompt, replace `{{PROMPT}}` with an empty string. NEVER put your own subagent prompt ("You are the html-renderer…") here or anywhere — that is not content.
-   - First paragraph → `{{HERO}}` (the executive summary)
-   - Each H2/H3 → one `<section class="card">` with the heading text as `card__title`
-   - The heading itself becomes an uppercased mono label (`card__label`)
-   - Code blocks → `<pre><code>` inside the card body
-   - Tables → real `<table>` with `<thead>`/`<tbody>`
+4. Map the source content into `plan.html`'s placeholders. `plan.html` is a
+   two-column page: a sticky sidebar TOC (auto-built from your `<h2 id>` —
+   you do NOT hand-write the nav) and a prose article column.
+   - `{{TITLE}}` → the page title.
+   - `{{KICKER}}` → a 1-3 word uppercase topic label for the sidebar (e.g. `PP · vLLM`). Keep it short.
+   - `{{SUBTITLE}}` → a one-line summary (used as both the lede and the sidebar sub).
+   - `{{TIMESTAMP}}` → `date -Iseconds`.
+   - `{{TAGS}}` → a few `<span class="tag">word</span>` chips for the topic, or `""`.
+   - `{{PROMPT}}` → the eliciting user prompt from step 1, as `<div class="prompt"><b>Prompt</b>ESCAPED_TEXT</div>`: HTML-escape it, collapse to one line, truncate to ~280 chars with `…`. If you cannot find a human prompt, use `""`. NEVER put your own subagent prompt here.
+   - `{{HERO}}` → the intro: optionally a `<div class="callout callout--who"><span class="callout__label">Who this is for</span><p>…</p></div>` for context, plus 1-2 lead paragraphs.
+   - `{{SECTIONS}}` → the body. For each H2 in the source, emit
+     `<h2 id="sec-N"><span class="secnum">N</span>Title</h2>` followed by its
+     prose `<p>`s. H3 → `<h3 id="…">Title</h3>` (figure heads: `class="fig-head"` with a `<span class="figtag">Figure N</span>`).
+   - Code blocks → `<pre class="code"><code class="language-LANG">ESCAPED</code></pre>` (hand-drawn ASCII diagrams: `class="code ascii"`, no language).
+   - Inline code → `<code class="inline">…</code>`.
+   - Tables → `<div class="tablewrap"><table><thead>…</thead><tbody>…</tbody></table></div>` (cell helpers available: `th.center`, `td.center`, `span.yes`/`span.no`).
+   - Notes/warnings/repro-pointers → `<div class="callout callout--warn|--repro">…</div>`.
+   - If the source describes a diagram (sequence/flow), you MAY render it as `<div class="figure"><div class="mermaid">…mermaid source…</div></div>` — Mermaid is loaded. Only do this when the content clearly maps to a diagram; never invent one.
 5. Convert markdown inline elements (`**bold**`, `*italic*`, `` `code` ``, `[link](url)`) to HTML.
-6. Do NOT invent content. If a section is brief, render it brief. If the source has 3 sections, the output has 3 sections.
+6. Do NOT invent content. If a section is brief, render it brief. If the source has 3 sections, the output has 3 sections. Section `id`s must be unique so the TOC links work.
 
 ### auto mode
 
@@ -97,7 +108,8 @@ Decide based on the source:
 
 Inherit from visual-explainer (preserved in template comments):
 
-- Forbidden fonts as primary: Inter, Roboto, Arial, system-ui. Templates use Bricolage Grotesque (display) / Hanken Grotesk (body) / JetBrains Mono (code). Keep the template's font + color tokens — do not swap in generic fonts.
+- Forbidden fonts as primary: Inter, Roboto, Arial, system-ui. The shared theme (`/_assets/base.css`) provides Bricolage Grotesque (display, via `--display`) / Hanken Grotesk (body, `--sans`) / JetBrains Mono (code, `--mono`). Use the tokens — never hard-code fonts or colors.
+- Palette is warm-editorial and **light-only** (deep-green accent on paper). Do NOT add a `prefers-color-scheme: dark` block or dark hex values — they would clash with the light core tokens.
 - Forbidden accent colors: indigo-500 / violet-500 (`#8b5cf6`, `#7c3aed`), cyan-magenta-pink neon combinations.
 - Forbidden patterns: gradient text on headings, emoji icons in section headers, animated glow shadows, three-dot window chrome on code blocks.
 - Required: vary visual weight (hero > body > recessed cards). Don't make everything elevated.
