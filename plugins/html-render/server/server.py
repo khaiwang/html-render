@@ -77,6 +77,14 @@ BASE_CSS = """
   --blue:#2b5d86;  --blue-soft:#e6eff7;  --blue-line:#cfdfee;
   --red:#b23a3a;   --red-soft:#fbe9e9;   --red-line:#edc4c4;
   --code-bg:#f4f3ef;
+  /* Aliases — the reference-page / common semantic names a freehand render may
+     reach for. Kept defined so a page that guesses --ink / --line / --wash
+     instead of our canonical names still renders instead of dropping borders,
+     backgrounds, and text colors. */
+  --paper:var(--surface);
+  --ink:var(--text); --ink-soft:var(--text-soft); --ink-faint:var(--text-dim);
+  --line:var(--border); --line-soft:var(--border-soft); --rule:var(--border);
+  --wash:var(--surface-dim);
 }
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }

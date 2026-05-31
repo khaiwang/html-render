@@ -109,6 +109,13 @@ Decide based on the source:
 Inherit from visual-explainer (preserved in template comments):
 
 - Forbidden fonts as primary: Inter, Roboto, Arial, system-ui. The shared theme (`/_assets/base.css`) provides Bricolage Grotesque (display, via `--display`) / Hanken Grotesk (body, `--sans`) / JetBrains Mono (code, `--mono`). Use the tokens — never hard-code fonts or colors.
+- **Only use CSS variables that `/_assets/base.css` actually defines** — a `var(--x)` that isn't defined silently drops the border/background/color and the page looks broken. The available tokens are:
+  - fonts: `--sans` `--display` `--serif` `--mono`
+  - surfaces: `--bg` `--surface` (alias `--paper`) `--surface-dim` (alias `--wash`) `--surface-recessed` `--code-bg`
+  - text: `--text` (alias `--ink`) `--text-soft` (alias `--ink-soft`) `--text-dim` (aliases `--dim`, `--ink-faint`)
+  - lines: `--border` (aliases `--line`, `--rule`) `--border-soft` (alias `--line-soft`)
+  - accent: `--accent` `--accent-soft` `--accent-line`; semantic: `--amber`/`-soft`/`-line`, `--blue`/`-soft`/`-line`, `--red`/`-soft`/`-line`
+  - If you genuinely need a token not in this list, define it in your OWN `:root{}` inside the page's `<style>`. Never reference an undefined variable.
 - Palette is warm-editorial and **light-only** (deep-green accent on paper). Do NOT add a `prefers-color-scheme: dark` block or dark hex values — they would clash with the light core tokens.
 - Forbidden accent colors: indigo-500 / violet-500 (`#8b5cf6`, `#7c3aed`), cyan-magenta-pink neon combinations.
 - Forbidden patterns: gradient text on headings, emoji icons in section headers, animated glow shadows, three-dot window chrome on code blocks.
