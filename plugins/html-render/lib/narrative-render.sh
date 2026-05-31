@@ -28,20 +28,21 @@ if ru:
             f'<a href="{html.escape(ru, quote=True)}">{html.escape(rl)}</a></div>')
 page = f"""<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Session summary (generating…)</title>
+<title>Rendering… (fills in automatically)</title>
+<!-- html-render:placeholder -->
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;700&display=swap');
-body {{ font-family:'Hanken Grotesk',ui-sans-serif,system-ui,sans-serif; background:#fafafa;
-  color:#1a1a1f; max-width:880px; margin:3rem auto; padding:0 1.5rem; line-height:1.6; }}
-@media (prefers-color-scheme: dark) {{ body {{ background:#161618; color:#e9e9ec; }} }}
-a {{ color:#2563eb; }}
-.banner {{ border:1px solid #e3e3e8; border-left:3px solid #2563eb; border-radius:0 8px 8px 0;
-  padding:1rem 1.25rem; background:rgba(37,99,235,.06); }}
-@media (prefers-color-scheme: dark) {{ .banner {{ border-color:rgba(255,255,255,.11); }} }}
+body {{ font-family:'Hanken Grotesk',ui-sans-serif,system-ui,sans-serif; background:#f7f6f3;
+  color:#1d2230; max-width:880px; margin:3rem auto; padding:0 1.5rem; line-height:1.6; }}
+a {{ color:#2f6d4f; }}
+.banner {{ border:1px solid #bcd9c8; border-left:4px solid #2f6d4f; border-radius:0 8px 8px 0;
+  padding:1rem 1.25rem; background:#e3f0e8; }}
 </style></head><body>
 {xref}
-<div class="banner"><b>Generating the session summary…</b><br>
-This page fills in automatically once the renderer finishes (about a minute). Refresh.</div>
+<div class="banner"><b>Rendering this page in the background…</b><br>
+It replaces this placeholder automatically in about a minute — refresh. If it
+never does, the background render was interrupted (e.g. the session ended first);
+re-run <code>/render</code> in that session to regenerate it.</div>
 </body></html>"""
 os.makedirs(os.path.dirname(out), exist_ok=True)
 with open(out, "w", encoding="utf-8") as f:
@@ -63,10 +64,40 @@ You have ONLY Read and Write tools — generate the HTML, write it to the output
 
 Print exactly one line on success: rendered: $URL"
 
+RLOG="${OUT%.html}.render.log"
 (
+  echo "[$(date -Iseconds)] narrative stage 2 → $URL"
   printf '%s' "$PROMPT" | HTML_RENDER_CHILD=1 claude -p \
     --permission-mode default \
-    --allowedTools "Read Write Edit Glob Grep" >/dev/null 2>&1
+    --allowedTools "Read Write Edit Glob Grep" >>"$RLOG" 2>&1
+  rc=$?
+
+  # If the renderer left our placeholder in place (errored / interrupted), don't
+  # leave the page stuck on "Rendering…". Replace it with an honest failure page.
+  if [ -f "$OUT" ] && grep -q 'html-render:placeholder' "$OUT"; then
+    echo "[$(date -Iseconds)] narrative stage 2 FAILED (rc=$rc): placeholder not replaced; writing failure page"
+    OUT="$OUT" python3 - <<'PY'
+import os
+out = os.environ["OUT"]
+page = """<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Render didn't complete</title>
+<style>body{font-family:'Hanken Grotesk',ui-sans-serif,system-ui,sans-serif;background:#f7f6f3;
+color:#1d2230;max-width:760px;margin:3rem auto;padding:0 1.5rem;line-height:1.6}
+.banner{border:1px solid #ecd9a8;border-left:4px solid #9a6b16;border-radius:0 8px 8px 0;
+padding:1rem 1.25rem;background:#fbf2dd}code{font-family:'JetBrains Mono',monospace}</style>
+</head><body>
+<div class="banner"><b>This render didn't finish.</b><br>
+The background renderer exited before writing the page — it may have errored, or
+been interrupted when the session ended. Re-run <code>/render</code> in that
+session to regenerate it.</div>
+</body></html>"""
+with open(out, "w", encoding="utf-8") as f:
+    f.write(page)
+PY
+  else
+    echo "[$(date -Iseconds)] narrative stage 2 OK (rc=$rc)"
+  fi
 
   # Cross-link banner: inject after <body...> once the LLM has (re)written the file.
   if [ -n "$RELATED_URL" ] && [ -f "$OUT" ]; then
@@ -80,8 +111,8 @@ banner = (
     '<div class="html-render-xref" style="max-width:880px;margin:1rem auto -0.5rem;'
     'padding:0 1.5rem;font:14px/1.4 ui-sans-serif,system-ui,-apple-system,sans-serif">'
     f'<a href="{url}" style="display:inline-block;padding:.4rem .8rem;'
-    'border:1px solid #e3e3e8;border-radius:6px;background:rgba(37,99,235,.08);'
-    f'color:#2563eb;text-decoration:none">{label}</a></div>'
+    'border:1px solid #bcd9c8;border-radius:6px;background:#e3f0e8;'
+    f'color:#2f6d4f;text-decoration:none">{label}</a></div>'
 )
 try:
     s = open(path, encoding="utf-8").read()
@@ -93,5 +124,5 @@ except Exception:
     pass
 PY
   fi
-) >/dev/null 2>&1 &
+) >>"$RLOG" 2>&1 &
 disown 2>/dev/null || true
