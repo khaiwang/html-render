@@ -11,6 +11,26 @@
 # prose beside it. The LLM picks boundaries/text; Python owns code + layout.
 set -u
 
+# ---- Stage-2 worker: re-invoked as `bash "$0" __bg ...` under setsid so the
+# segmenting render runs in its OWN session (no Stop-hook process-group stall;
+# survives the session ending). ----
+if [ "${1:-}" = "__bg" ]; then
+  PLUGIN_DIR="$2"; OUT="$3"; URL="$4"; TRANSCRIPT="${5:-}"; REPO="${6:-$PWD}"
+  PYW="$PLUGIN_DIR/lib/render_walkthrough.py"
+  SEG="${OUT%.html}.segments.json"; RLOG="${OUT%.html}.render.log"
+  echo "[$(date -Iseconds)] walkthrough stage 2 → $URL"
+  printf '%s' "${HTML_RENDER_PROMPT:-}" | HTML_RENDER_CHILD=1 claude -p \
+    --permission-mode default --allowedTools "Read Grep Glob" >"$SEG" 2>>"$RLOG"
+  if [ -s "$SEG" ]; then
+    python3 "$PYW" --segments "$SEG" --out "$OUT" --url "$URL" \
+      --repo "$REPO" --transcript "$TRANSCRIPT"
+    echo "[$(date -Iseconds)] walkthrough stage 2: rendered segments"
+  else
+    echo "[$(date -Iseconds)] walkthrough stage 2 FAILED: no segments"
+  fi
+  exit 0
+fi
+
 PLUGIN_DIR="$1"; OUT="$2"; URL="$3"; TRANSCRIPT="${4:-}"
 PYW="$PLUGIN_DIR/lib/render_walkthrough.py"
 REPO="${PWD:-$(pwd)}"
@@ -32,12 +52,12 @@ Steps:
    {\"file\": \"<ABSOLUTE path to the file you actually read>\", \"start\": <int>, \"end\": <int>, \"title\": \"<short section heading>\", \"note\": \"<the section's walkthrough prose, as markdown — reuse the existing text>\"}
 The \"file\" MUST be the absolute path you opened (e.g. /disk/u/.../worktrees/x/src/...py), so the renderer can find it regardless of cwd. No prose outside the JSON. If a section references no specific code, omit \"file\"/\"start\"/\"end\" and just give title+note."
 
-(
-  printf '%s' "$PROMPT" | HTML_RENDER_CHILD=1 claude -p \
-    --permission-mode default --allowedTools "Read Grep Glob" >"$SEG" 2>/dev/null
-  if [ -s "$SEG" ]; then
-    python3 "$PYW" --segments "$SEG" --out "$OUT" --url "$URL" \
-      --repo "$REPO" --transcript "$TRANSCRIPT"
-  fi
-) >/dev/null 2>&1 &
+RLOG="${OUT%.html}.render.log"
+if command -v setsid >/dev/null 2>&1; then
+  HTML_RENDER_PROMPT="$PROMPT" setsid bash "$0" __bg \
+    "$PLUGIN_DIR" "$OUT" "$URL" "$TRANSCRIPT" "$REPO" </dev/null >>"$RLOG" 2>&1 &
+else
+  HTML_RENDER_PROMPT="$PROMPT" bash "$0" __bg \
+    "$PLUGIN_DIR" "$OUT" "$URL" "$TRANSCRIPT" "$REPO" </dev/null >>"$RLOG" 2>&1 &
+fi
 disown 2>/dev/null || true

@@ -15,6 +15,33 @@
 # Set HTML_RENDER_EXPLAIN=0 to skip stage 2 (pure before|after diff).
 set -u
 
+# ---- Stage-2 worker: re-invoked as `bash "$0" __bg ...` under setsid so the
+# explorer render runs in its OWN session (doesn't hold the Stop hook's process
+# group → no interactive stall; survives the session ending). ----
+if [ "${1:-}" = "__bg" ]; then
+  PLUGIN_DIR="$2"; DIFF="$3"; OUT="$4"; URL="$5"; TRANSCRIPT="${6:-}"
+  RELATED_URL="${7:-}"; RELATED_LABEL="${8:-Session summary →}"; NHUNKS="${9:-0}"
+  PY="$PLUGIN_DIR/lib/render_diff.py"
+  EXPL="${OUT%.html}.expl.json"; RLOG="${OUT%.html}.render.log"
+  REL_ARGS=()
+  [ -n "$RELATED_URL" ] && REL_ARGS=(--related-url "$RELATED_URL" --related-label "$RELATED_LABEL")
+  echo "[$(date -Iseconds)] diff-explain stage 2: $NHUNKS hunk(s) → $URL"
+  # Capable explorer: read + search + read-only-ish git, but no Write/WebFetch.
+  printf '%s' "${HTML_RENDER_PROMPT:-}" | HTML_RENDER_CHILD=1 claude -p \
+    --permission-mode default \
+    --allowedTools "Read Grep Glob Bash(git *)" >"$EXPL" 2>>"$RLOG"
+  if [ -s "$EXPL" ]; then
+    python3 "$PY" --diff "$DIFF" --out "$OUT" --url "$URL" \
+      --transcript "$TRANSCRIPT" --explanations "$EXPL" "${REL_ARGS[@]}"
+    echo "[$(date -Iseconds)] diff-explain stage 2: re-rendered with explanations"
+  else
+    # Explorer produced nothing (error / interrupted). The stage-1 page keeps
+    # its visible "explanation loading…" placeholders — never a silent 2-column.
+    echo "[$(date -Iseconds)] diff-explain stage 2 FAILED: empty explanations; why column stays pending"
+  fi
+  exit 0
+fi
+
 PLUGIN_DIR="$1"; DIFF="$2"; OUT="$3"; URL="$4"; TRANSCRIPT="${5:-}"
 RELATED_URL="${6:-}"; RELATED_LABEL="${7:-Session summary →}"
 PY="$PLUGIN_DIR/lib/render_diff.py"
@@ -43,8 +70,7 @@ python3 "$PY" --diff "$DIFF" --out "$OUT" --url "$URL" --transcript "$TRANSCRIPT
 
 [ "$WILL_EXPLAIN" = "1" ] || exit 0
 
-# Stage 2 — background: generate explanations and re-render.
-EXPL="${OUT%.html}.expl.json"
+# Stage 2 — generate explanations and re-render, in a DETACHED session.
 PROMPT="You are explaining a git diff. The diff is at $DIFF; it has $NHUNKS hunks (blocks starting with @@), in order across all files.
 
 Investigate before you explain — don't guess from the diff alone:
@@ -54,20 +80,13 @@ Investigate before you explain — don't guess from the diff alone:
 
 Then, for EACH hunk in order, write ONE concise sentence saying what the change does AND why it matters. Output ONLY a JSON array of exactly $NHUNKS strings — no markdown, no keys, no other text."
 
-(
-  echo "[$(date -Iseconds)] diff-explain stage 2: $NHUNKS hunk(s) → $URL"
-  # Capable explorer: read + search + read-only-ish git, but no Write/WebFetch.
-  printf '%s' "$PROMPT" | HTML_RENDER_CHILD=1 claude -p \
-    --permission-mode default \
-    --allowedTools "Read Grep Glob Bash(git *)" >"$EXPL" 2>>"$RLOG"
-  if [ -s "$EXPL" ]; then
-    python3 "$PY" --diff "$DIFF" --out "$OUT" --url "$URL" \
-      --transcript "$TRANSCRIPT" --explanations "$EXPL" "${REL_ARGS[@]}"
-    echo "[$(date -Iseconds)] diff-explain stage 2: re-rendered with explanations"
-  else
-    # Explorer produced nothing (error / interrupted). The stage-1 page keeps
-    # its visible "explanation loading…" placeholders — never a silent 2-column.
-    echo "[$(date -Iseconds)] diff-explain stage 2 FAILED: empty explanations; why column stays pending"
-  fi
-) >>"$RLOG" 2>&1 &
+if command -v setsid >/dev/null 2>&1; then
+  HTML_RENDER_PROMPT="$PROMPT" setsid bash "$0" __bg \
+    "$PLUGIN_DIR" "$DIFF" "$OUT" "$URL" "$TRANSCRIPT" "$RELATED_URL" "$RELATED_LABEL" "$NHUNKS" \
+    </dev/null >>"$RLOG" 2>&1 &
+else
+  HTML_RENDER_PROMPT="$PROMPT" bash "$0" __bg \
+    "$PLUGIN_DIR" "$DIFF" "$OUT" "$URL" "$TRANSCRIPT" "$RELATED_URL" "$RELATED_LABEL" "$NHUNKS" \
+    </dev/null >>"$RLOG" 2>&1 &
+fi
 disown 2>/dev/null || true
