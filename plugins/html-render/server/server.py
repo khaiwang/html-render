@@ -45,17 +45,30 @@ def _default_title():
 # Home-page heading/title. Override with HTML_RENDER_TITLE.
 HOME_TITLE = os.environ.get("HTML_RENDER_TITLE") or _default_title()
 
-INDEX_CSS = """
+# Canonical shared theme: fonts + core color tokens + the box-sizing reset.
+# Served at /_assets/base.css and linked by every rendered page (and the index)
+# so the palette lives in ONE place — change it here and all future renders pick
+# it up. Page-specific tokens (diff add/del, review good/bad/ugly, etc.) stay
+# inline in each page. --dim is an alias of --text-dim so both names resolve to
+# one source value across renderers and templates.
+BASE_CSS = """
 @import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 :root { color-scheme: light dark;
   --sans:'Hanken Grotesk',ui-sans-serif,system-ui,-apple-system,sans-serif;
+  --serif:'Hanken Grotesk',ui-sans-serif,system-ui,-apple-system,sans-serif;
   --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-  --bg:#fafafa; --surface-dim:#f1f1f3; --text:#1a1a1f; --dim:#6b7280;
-  --border:#e3e3e8; --accent:#2563eb; --accent-soft:rgba(37,99,235,.10); }
+  --bg:#fafafa; --surface:#ffffff; --surface-dim:#f1f1f3;
+  --border:#e3e3e8; --text:#1a1a1f; --text-dim:#6b7280; --dim:var(--text-dim);
+  --accent:#2563eb; --accent-soft:rgba(37,99,235,.10); }
 @media (prefers-color-scheme: dark) { :root {
-  --bg:#161618; --surface-dim:#26262a; --text:#e9e9ec; --dim:#9aa0a6;
-  --border:rgba(255,255,255,.11); --accent:#7aa2f7; --accent-soft:rgba(122,162,247,.14); } }
+  --bg:#161618; --surface:#1d1d20; --surface-dim:#26262a;
+  --border:rgba(255,255,255,.11); --text:#e9e9ec; --text-dim:#9aa0a6;
+  --accent:#7aa2f7; --accent-soft:rgba(122,162,247,.14); } }
 * { box-sizing: border-box; }
+"""
+
+# Index-page-only rules. Core tokens/fonts/reset come from BASE_CSS (linked).
+INDEX_CSS = """
 body {
   font-family: var(--sans); background: var(--bg); color: var(--text);
   max-width: 900px; margin: 2.5rem auto; padding: 0 1.5rem; line-height: 1.55;
@@ -295,6 +308,7 @@ def render_index() -> bytes:
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{html.escape(HOME_TITLE)}</title>
+<link rel="stylesheet" href="/_assets/base.css">
 <style>{INDEX_CSS}</style>
 </head>
 <body>
@@ -311,6 +325,15 @@ class Handler(SimpleHTTPRequestHandler):
         super().__init__(*args, directory=str(ROOT), **kwargs)
 
     def do_GET(self):
+        if self.path == "/_assets/base.css":
+            body = BASE_CSS.encode("utf-8")
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "text/css; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(body)
+            return
         if self.path in ("/", "/index", "/index.html"):
             body = render_index()
             self.send_response(HTTPStatus.OK)

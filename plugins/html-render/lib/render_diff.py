@@ -125,22 +125,16 @@ def load_explanations(path):
     return [str(x) for x in data] if isinstance(data, list) else []
 
 
+# Core palette/fonts/reset come from /_assets/base.css (linked in the head).
+# Only diff-specific tokens live here.
 CSS = """
-@import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
-:root { color-scheme: light dark;
-  --sans:'Hanken Grotesk',ui-sans-serif,system-ui,-apple-system,sans-serif;
-  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-  --bg:#fafafa; --surface:#ffffff; --surface-dim:#f1f1f3; --text:#1a1a1f; --dim:#6b7280;
-  --border:#e3e3e8; --accent:#2563eb; --accent-soft:rgba(37,99,235,.10);
+:root {
   --add-bg:rgba(35,160,85,.12); --del-bg:rgba(210,55,55,.10);
   --add-gut:#1a7f37; --del-gut:#c0362c; --blank:rgba(130,130,140,.05);
   --why-bg:rgba(130,130,140,.06); }
 @media (prefers-color-scheme: dark) { :root {
-  --bg:#161618; --surface:#1d1d20; --surface-dim:#26262a; --text:#e9e9ec; --dim:#9aa0a6;
-  --border:rgba(255,255,255,.11); --accent:#7aa2f7; --accent-soft:rgba(122,162,247,.14);
   --add-bg:rgba(60,170,90,.18); --del-bg:rgba(220,80,70,.18); --blank:rgba(255,255,255,.04);
   --why-bg:rgba(255,255,255,.05); } }
-* { box-sizing: border-box; }
 body { font-family: var(--mono); background: var(--bg); color: var(--text);
   max-width: 1400px; margin: 2rem auto; padding: 0 1.25rem; line-height: 1.5; }
 h1 { font-family: var(--sans); font-size: 1.4rem; font-weight: 700; letter-spacing:-.01em; margin: 0 0 .3rem; }
@@ -219,7 +213,9 @@ def render(files, title, url, prompt_text, explanations, related=None):
     total_d = sum(f["dels"] for f in files)
     out = [f'<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">'
            f'<meta name="viewport" content="width=device-width, initial-scale=1">'
-           f'<title>{esc(title)}</title><style>{CSS}</style></head><body>',
+           f'<title>{esc(title)}</title>'
+           f'<link rel="stylesheet" href="/_assets/base.css">'
+           f'<style>{CSS}</style></head><body>',
            f"<h1>{esc(title)}</h1>",
            f'<div class="meta">{len(files)} file(s) · '
            f'<span style="color:var(--add-gut)">+{total_a}</span> '

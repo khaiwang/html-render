@@ -27,39 +27,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{TITLE}}</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!-- Core palette/fonts/reset come from /_assets/base.css. Only page-specific tokens are inline. -->
+<link rel="stylesheet" href="/_assets/base.css">
 <style>
-  :root {
-    color-scheme: light dark;
-    --bg: #fafafa;
-    --surface: #ffffff;
-    --surface-dim: #f1f1f3;
-    --surface-recessed: #ececef;
-    --border: #e3e3e8;
-    --text: #1a1a1f;
-    --text-dim: #6b7280;
-    --accent: #2563eb;
-    --accent-soft: rgba(37,99,235,0.35);
-    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    --sans: "Hanken Grotesk", -apple-system, system-ui, sans-serif;
-    --serif: "Hanken Grotesk", -apple-system, system-ui, sans-serif;
-  }
+  :root { --surface-recessed: #ececef; }
   @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #161618;
-      --surface: #1d1d20;
-      --surface-dim: #26262a;
-      --surface-recessed: #202024;
-      --border: rgba(255,255,255,0.11);
-      --text: #e9e9ec;
-      --text-dim: #9aa0a6;
-      --accent: #7aa2f7;
-      --accent-soft: rgba(122,162,247,0.4);
-    }
+    :root { --surface-recessed: #202024; }
   }
-  * { box-sizing: border-box; }
   body {
     margin: 0;
     background: var(--bg);
@@ -94,7 +68,7 @@
   }
   .card.hero {
     background: var(--surface);
-    border-left: 3px solid var(--accent-soft);
+    border-left: 3px solid var(--accent);
     padding: 2rem 2rem;
     font-size: 1.05rem;
   }

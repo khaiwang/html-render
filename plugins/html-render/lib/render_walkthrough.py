@@ -175,19 +175,13 @@ def md2html(text):
     return "\n".join(out)
 
 
+# Core palette/fonts/reset come from /_assets/base.css (linked in the head).
+# Only walkthrough-specific tokens live here.
 CSS = """
-@import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
-:root { color-scheme: light dark;
-  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-  --sans:'Hanken Grotesk',ui-sans-serif,system-ui,-apple-system,sans-serif;
-  --bg:#fafafa; --surface:#ffffff; --surface-dim:#f1f1f3; --text:#1a1a1f; --dim:#6b7280;
-  --border:#e3e3e8; --accent:#2563eb; --accent-soft:rgba(37,99,235,.10);
+:root {
   --code-bg:rgba(130,130,140,.06); --note-bg:rgba(130,130,140,.05); }
 @media (prefers-color-scheme: dark) { :root {
-  --bg:#161618; --surface:#1d1d20; --surface-dim:#26262a; --text:#e9e9ec; --dim:#9aa0a6;
-  --border:rgba(255,255,255,.11); --accent:#7aa2f7; --accent-soft:rgba(122,162,247,.14);
   --code-bg:rgba(255,255,255,.05); --note-bg:rgba(255,255,255,.04); } }
-* { box-sizing: border-box; }
 body { font-family: var(--sans); background: var(--bg); color: var(--text);
   max-width: 920px; margin: 2rem auto; padding: 0 1.25rem; line-height: 1.6; }
 h1 { font-family: var(--sans); font-weight: 700; font-size: 1.5rem; letter-spacing:-.01em; margin: 0 0 .25rem; }
@@ -372,7 +366,9 @@ def render(segments, title, url, prompt_text, repo, placeholder=False):
     head_extra = "" if placeholder else HLJS_HEAD
     out = [f'<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">'
            f'<meta name="viewport" content="width=device-width, initial-scale=1">'
-           f'<title>{esc(title)}</title>{head_extra}<style>{CSS}</style></head><body>',
+           f'<title>{esc(title)}</title>'
+           f'<link rel="stylesheet" href="/_assets/base.css">'
+           f'{head_extra}<style>{CSS}</style></head><body>',
            f"<h1>{esc(title)}</h1>"]
     if prompt_text:
         out.append(f'<div class="prompt"><b>Prompt</b>{esc(prompt_text)}</div>')

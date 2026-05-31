@@ -19,45 +19,23 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{TITLE}}</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!-- Core palette/fonts/reset come from /_assets/base.css. Only page-specific tokens are inline. -->
+<link rel="stylesheet" href="/_assets/base.css">
 <style>
   :root {
-    color-scheme: light dark;
-    --bg: #fafafa;
-    --surface: #ffffff;
-    --surface-dim: #f1f1f3;
-    --border: #e3e3e8;
-    --text: #1a1a1f;
-    --text-dim: #6b7280;
-    --accent: #2563eb;
-    --accent-soft: rgba(37,99,235,0.12);
     --good: #65a30d;
     --bad: #be123c;
     --ugly: #d97706;
     --question: #0891b2;
-    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    --sans: "Hanken Grotesk", -apple-system, system-ui, sans-serif;
-    --serif: "Hanken Grotesk", -apple-system, system-ui, sans-serif;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #161618;
-      --surface: #1d1d20;
-      --surface-dim: #26262a;
-      --border: rgba(255,255,255,0.11);
-      --text: #e9e9ec;
-      --text-dim: #9aa0a6;
-      --accent: #7aa2f7;
-      --accent-soft: rgba(122,162,247,0.14);
       --good: #98d459;
       --bad: #f0506e;
       --ugly: #f0a437;
       --question: #4fc6e0;
     }
   }
-  * { box-sizing: border-box; }
   body {
     margin: 0;
     background: var(--bg);
