@@ -21,9 +21,9 @@ if [ "${1:-}" = "__bg" ]; then
   OUT="$2"; URL="$3"; RELATED_URL="${4:-}"; RELATED_LABEL="${5:-← Code diff}"
   RLOG="${OUT%.html}.render.log"
   echo "[$(date -Iseconds)] narrative stage 2 → $URL"
-  # Render is a mechanical format-to-HTML task — default to a fast model.
-  # Override with HTML_RENDER_MODEL (e.g. opus for max quality, haiku for speed).
-  MODEL="${HTML_RENDER_MODEL:-sonnet}"
+  # Render is a mechanical format-to-HTML task — default to the fastest model.
+  # Override with HTML_RENDER_MODEL (e.g. sonnet or opus for higher quality).
+  MODEL="${HTML_RENDER_MODEL:-haiku}"
   printf '%s' "${HTML_RENDER_PROMPT:-}" | HTML_RENDER_CHILD=1 claude -p \
     ${MODEL:+--model "$MODEL"} --permission-mode default \
     --allowedTools "Read Write Edit Glob Grep" >>"$RLOG" 2>&1
