@@ -22,6 +22,7 @@ import json
 import os
 import re
 import subprocess
+import sys
 from datetime import datetime
 
 HUNK_RE = re.compile(r"^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@(.*)")
@@ -129,12 +130,9 @@ def load_explanations(path):
 # Only diff-specific tokens live here.
 CSS = """
 :root {
-  --add-bg:rgba(35,160,85,.12); --del-bg:rgba(210,55,55,.10);
-  --add-gut:#1a7f37; --del-gut:#c0362c; --blank:rgba(130,130,140,.05);
+  --add-bg:rgba(47,109,79,.12); --del-bg:rgba(178,58,58,.10);
+  --add-gut:#2f6d4f; --del-gut:#b23a3a; --blank:rgba(130,130,140,.05);
   --why-bg:rgba(130,130,140,.06); }
-@media (prefers-color-scheme: dark) { :root {
-  --add-bg:rgba(60,170,90,.18); --del-bg:rgba(220,80,70,.18); --blank:rgba(255,255,255,.04);
-  --why-bg:rgba(255,255,255,.05); } }
 body { font-family: var(--mono); background: var(--bg); color: var(--text);
   max-width: 1400px; margin: 2rem auto; padding: 0 1.25rem; line-height: 1.5; }
 h1 { font-family: var(--sans); font-size: 1.4rem; font-weight: 700; letter-spacing:-.01em; margin: 0 0 .3rem; }
@@ -171,6 +169,7 @@ td.why { white-space: normal; font-family: var(--sans); font-size: 13.5px; line-
 td.why b, td.why code { color: var(--text); }
 td.why code { font-family: var(--mono); font-size: .88em; background: var(--surface-dim);
   padding: .03rem .3rem; border-radius: 3px; }
+td.why .why-pending { color: var(--dim); font-style: italic; font-size: .82rem; }
 tr.hunk td { background: var(--surface-dim); color: var(--dim); font-size: .75rem;
   padding: .25rem .8rem; border-top: 1px solid var(--border); font-family: var(--sans); }
 .empty { color: var(--dim); font-style: italic; }
@@ -206,8 +205,19 @@ def cell(item, new_side):
             f'<td class="code {css}{code_extra}">{esc(text)}</td>')
 
 
-def render(files, title, url, prompt_text, explanations, related=None):
-    has_why = bool(explanations)
+def render(files, title, url, prompt_text, explanations, related=None, pending=False):
+    # The why/explanation column is shown whenever explanations EXIST or are
+    # still being generated (pending). It must never silently vanish: a hunk
+    # with no explanation yet renders a visible "loading" placeholder rather
+    # than collapsing the diff back to two columns (which reads as "the feature
+    # was deleted"). Only a render with no explanations AND none coming drops
+    # the column — and that case is logged to stderr below.
+    has_why = bool(explanations) or pending
+    n_hunks = sum(len(f["hunks"]) for f in files)
+    if not has_why and n_hunks:
+        sys.stderr.write(
+            f"render_diff: no explanations and none pending — rendering "
+            f"{n_hunks} hunk(s) without the why column\n")
     ncols = 5 if has_why else 4
     total_a = sum(f["adds"] for f in files)
     total_d = sum(f["dels"] for f in files)
@@ -256,7 +266,10 @@ def render(files, title, url, prompt_text, explanations, related=None):
             for r_i, (left, right) in enumerate(rows):
                 cells = cell(left, False) + cell(right, True)
                 if has_why and r_i == 0:
-                    cells += f'<td class="why" rowspan="{len(rows)}">{md_inline(expl)}</td>'
+                    why = (md_inline(expl) if expl
+                           else '<span class="why-pending">explanation loading… '
+                                '(the explorer step hasn\'t finished, or was interrupted)</span>')
+                    cells += f'<td class="why" rowspan="{len(rows)}">{why}</td>'
                 out.append("<tr>" + cells + "</tr>")
         out.append("</tbody></table></div></div>")
     out.append("</body></html>")
@@ -298,6 +311,10 @@ def main():
     ap.add_argument("--transcript")
     ap.add_argument("--title")
     ap.add_argument("--explanations")
+    ap.add_argument("--explain-pending", action="store_true",
+                    help="explanations are being generated in the background; "
+                         "render the why column with loading placeholders so it "
+                         "never silently disappears if that step dies")
     ap.add_argument("--related-url")
     ap.add_argument("--related-label", default="Session summary →")
     a = ap.parse_args()
@@ -314,7 +331,8 @@ def main():
 
     related = {"url": a.related_url, "label": a.related_label} if a.related_url else None
     out_html = render(files, title, a.url, eliciting_prompt(a.transcript),
-                      load_explanations(a.explanations), related=related)
+                      load_explanations(a.explanations), related=related,
+                      pending=a.explain_pending)
     os.makedirs(os.path.dirname(a.out), exist_ok=True)
     with open(a.out, "w", encoding="utf-8") as f:
         f.write(out_html)

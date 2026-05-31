@@ -22,16 +22,28 @@ PY="$PLUGIN_DIR/lib/render_diff.py"
 REL_ARGS=()
 [ -n "$RELATED_URL" ] && REL_ARGS=(--related-url "$RELATED_URL" --related-label "$RELATED_LABEL")
 
-# Stage 1 — always produce a valid page now.
-python3 "$PY" --diff "$DIFF" --out "$OUT" --url "$URL" --transcript "$TRANSCRIPT" "${REL_ARGS[@]}"
+RLOG="${OUT%.html}.render.log"
 
-[ "${HTML_RENDER_EXPLAIN:-1}" = "0" ] && exit 0
-command -v claude >/dev/null 2>&1 || exit 0
-[ -s "$DIFF" ] || exit 0
+# Decide up front whether the explorer (stage 2) will run, so stage 1 can show
+# the why column as "loading" placeholders instead of silently omitting it.
+NHUNKS="$(grep -c '^@@' "$DIFF" 2>/dev/null || echo 0)"
+WILL_EXPLAIN=1
+[ "${HTML_RENDER_EXPLAIN:-1}" = "0" ] && WILL_EXPLAIN=0
+command -v claude >/dev/null 2>&1 || WILL_EXPLAIN=0
+[ -s "$DIFF" ] || WILL_EXPLAIN=0
+[ "$NHUNKS" -gt 0 ] 2>/dev/null || WILL_EXPLAIN=0
+
+PEND_ARG=()
+[ "$WILL_EXPLAIN" = "1" ] && PEND_ARG=(--explain-pending)
+
+# Stage 1 — always produce a valid page now (with a pending why column if the
+# explorer is about to run).
+python3 "$PY" --diff "$DIFF" --out "$OUT" --url "$URL" --transcript "$TRANSCRIPT" \
+  "${PEND_ARG[@]}" "${REL_ARGS[@]}"
+
+[ "$WILL_EXPLAIN" = "1" ] || exit 0
 
 # Stage 2 — background: generate explanations and re-render.
-NHUNKS="$(grep -c '^@@' "$DIFF" 2>/dev/null || echo 0)"
-[ "$NHUNKS" -gt 0 ] 2>/dev/null || exit 0
 EXPL="${OUT%.html}.expl.json"
 PROMPT="You are explaining a git diff. The diff is at $DIFF; it has $NHUNKS hunks (blocks starting with @@), in order across all files.
 
@@ -43,13 +55,19 @@ Investigate before you explain — don't guess from the diff alone:
 Then, for EACH hunk in order, write ONE concise sentence saying what the change does AND why it matters. Output ONLY a JSON array of exactly $NHUNKS strings — no markdown, no keys, no other text."
 
 (
+  echo "[$(date -Iseconds)] diff-explain stage 2: $NHUNKS hunk(s) → $URL"
   # Capable explorer: read + search + read-only-ish git, but no Write/WebFetch.
   printf '%s' "$PROMPT" | HTML_RENDER_CHILD=1 claude -p \
     --permission-mode default \
-    --allowedTools "Read Grep Glob Bash(git *)" >"$EXPL" 2>/dev/null
+    --allowedTools "Read Grep Glob Bash(git *)" >"$EXPL" 2>>"$RLOG"
   if [ -s "$EXPL" ]; then
     python3 "$PY" --diff "$DIFF" --out "$OUT" --url "$URL" \
       --transcript "$TRANSCRIPT" --explanations "$EXPL" "${REL_ARGS[@]}"
+    echo "[$(date -Iseconds)] diff-explain stage 2: re-rendered with explanations"
+  else
+    # Explorer produced nothing (error / interrupted). The stage-1 page keeps
+    # its visible "explanation loading…" placeholders — never a silent 2-column.
+    echo "[$(date -Iseconds)] diff-explain stage 2 FAILED: empty explanations; why column stays pending"
   fi
-) >/dev/null 2>&1 &
+) >>"$RLOG" 2>&1 &
 disown 2>/dev/null || true
