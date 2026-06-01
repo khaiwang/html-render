@@ -121,12 +121,17 @@ PY
 
 command -v claude >/dev/null 2>&1 || exit 0
 
-# Extract ONLY the last turn (+ eliciting prompt) to a tiny file. The full
-# transcript is often multi-MB; handing the renderer that is the dominant cause
-# of slow renders (it reads ~hundreds of K tokens). Fall back to the transcript
-# if extraction fails.
-SRC="${OUT%.html}.source.md"
-python3 "$PLUGIN_DIR/lib/extract_turn.py" "$TRANSCRIPT" "$SRC" >/dev/null 2>&1 || SRC="$TRANSCRIPT"
+# Source for the renderer. A caller may supply a pre-built source file via
+# HTML_RENDER_SOURCE (e.g. the plan hook, which has the plan in hand and not in
+# the transcript yet). Otherwise extract ONLY the last turn (+ eliciting prompt)
+# to a tiny file — the full transcript is often multi-MB and reading it is the
+# dominant cause of slow renders. Fall back to the transcript if extraction fails.
+if [ -n "${HTML_RENDER_SOURCE:-}" ] && [ -f "${HTML_RENDER_SOURCE:-}" ]; then
+  SRC="$HTML_RENDER_SOURCE"
+else
+  SRC="${OUT%.html}.source.md"
+  python3 "$PLUGIN_DIR/lib/extract_turn.py" "$TRANSCRIPT" "$SRC" >/dev/null 2>&1 || SRC="$TRANSCRIPT"
+fi
 
 PROMPT="You are the html-renderer subagent. Read the instructions at $PLUGIN_DIR/agents/html-renderer.md.
 
