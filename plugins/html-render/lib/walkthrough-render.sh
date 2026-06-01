@@ -19,7 +19,7 @@ if [ "${1:-}" = "__bg" ]; then
   PYW="$PLUGIN_DIR/lib/render_walkthrough.py"
   SEG="${OUT%.html}.segments.json"; RLOG="${OUT%.html}.render.log"
   echo "[$(date -Iseconds)] walkthrough stage 2 → $URL"
-  MODEL="${HTML_RENDER_MODEL:-haiku}"
+  MODEL="${HTML_RENDER_MODEL:-sonnet}"
   printf '%s' "${HTML_RENDER_PROMPT:-}" | HTML_RENDER_CHILD=1 claude -p \
     ${MODEL:+--model "$MODEL"} --permission-mode default --allowedTools "Read Grep Glob" >"$SEG" 2>>"$RLOG"
   if [ -s "$SEG" ]; then

@@ -61,7 +61,7 @@ claude plugin install html-render@html-render
 | `HTML_RENDER_TITLE` | `<user>'s Claude sessions` | Index page heading. |
 | `HTML_RENDER_RECENT` | `3` | Newest renders shown per session before the rest collapse behind a "N older" toggle. |
 | `HTML_RENDER_EXPLAIN` | `1` | Set `0` to skip the diff per-hunk explanation column (pure before/after). |
-| `HTML_RENDER_MODEL` | `haiku` | Model the background render subagents use. `haiku` is fastest; set `sonnet` or `opus` for higher-quality pages at the cost of slower (multi-minute) renders. |
+| `HTML_RENDER_MODEL` | `sonnet` | Model the background render subagents use. The renderer authors pages freehand, so weaker models diverge turn-to-turn — `sonnet` follows the template reliably. Set `haiku` for faster/cheaper but less consistent pages, or `opus` for max quality. |
 
 Runtime files (pid, logs) live in `<data>/.state/`, separate from the rendered history.
 
