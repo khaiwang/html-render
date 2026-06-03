@@ -62,6 +62,7 @@ claude plugin install html-render@html-render
 | `HTML_RENDER_RECENT` | `3` | Newest renders shown per session before the rest collapse behind a "N older" toggle. |
 | `HTML_RENDER_EXPLAIN` | `1` | Set `0` to skip the diff per-hunk explanation column (pure before/after). |
 | `HTML_RENDER_MODEL` | `sonnet` | Model the background render subagents use. The renderer authors pages freehand, so weaker models diverge turn-to-turn — `sonnet` follows the template reliably. Set `haiku` for faster/cheaper but less consistent pages, or `opus` for max quality. |
+| `HTML_RENDER_TIMEOUT` | `600` | Seconds before a stalled render subagent is killed (it then writes a "didn't complete" page instead of hanging on the placeholder forever). A render that shares auth/rate with your interactive session can wedge when you run a follow-up turn; narrative renders retry once after a timeout. |
 
 Runtime files (pid, logs) live in `<data>/.state/`, separate from the rendered history.
 

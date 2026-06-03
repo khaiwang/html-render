@@ -20,7 +20,10 @@ if [ "${1:-}" = "__bg" ]; then
   SEG="${OUT%.html}.segments.json"; RLOG="${OUT%.html}.render.log"
   echo "[$(date -Iseconds)] walkthrough stage 2 → $URL"
   MODEL="${HTML_RENDER_MODEL:-sonnet}"
-  printf '%s' "${HTML_RENDER_PROMPT:-}" | HTML_RENDER_CHILD=1 claude -p \
+  # timeout caps a stalled segmenter; on timeout $SEG is empty -> handled below.
+  TO="${HTML_RENDER_TIMEOUT:-600}"
+  TIMEOUT=(); command -v timeout >/dev/null 2>&1 && TIMEOUT=(timeout "$TO")
+  printf '%s' "${HTML_RENDER_PROMPT:-}" | HTML_RENDER_CHILD=1 "${TIMEOUT[@]}" claude -p \
     ${MODEL:+--model "$MODEL"} --permission-mode default --allowedTools "Read Grep Glob" >"$SEG" 2>>"$RLOG"
   if [ -s "$SEG" ]; then
     python3 "$PYW" --segments "$SEG" --out "$OUT" --url "$URL" \

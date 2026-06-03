@@ -25,10 +25,24 @@ if [ "${1:-}" = "__bg" ]; then
   # strength — sonnet follows the template reliably; haiku diverges turn-to-turn.
   # Override with HTML_RENDER_MODEL (haiku = faster/cheaper, opus = max quality).
   MODEL="${HTML_RENDER_MODEL:-sonnet}"
-  printf '%s' "${HTML_RENDER_PROMPT:-}" | HTML_RENDER_CHILD=1 claude -p \
-    ${MODEL:+--model "$MODEL"} --permission-mode default \
-    --allowedTools "Read Write Edit Glob Grep" >>"$RLOG" 2>&1
-  rc=$?
+  # Bound the render: a `claude -p` sharing auth/rate with your interactive
+  # session can stall indefinitely when you run a follow-up turn. timeout caps
+  # it so a wedged render dies (-> failure page below) instead of hanging on the
+  # placeholder forever. Override with HTML_RENDER_TIMEOUT (seconds).
+  TO="${HTML_RENDER_TIMEOUT:-600}"
+  TIMEOUT=(); command -v timeout >/dev/null 2>&1 && TIMEOUT=(timeout "$TO")
+  _render() {
+    printf '%s' "${HTML_RENDER_PROMPT:-}" | HTML_RENDER_CHILD=1 "${TIMEOUT[@]}" claude -p \
+      ${MODEL:+--model "$MODEL"} --permission-mode default \
+      --allowedTools "Read Write Edit Glob Grep" >>"$RLOG" 2>&1
+  }
+  _render; rc=$?
+  # If it timed out (124) and the page is still the placeholder — typically a
+  # concurrent-session stall — wait briefly and retry once.
+  if [ "$rc" = 124 ] && [ -f "$OUT" ] && grep -q 'html-render:placeholder' "$OUT"; then
+    echo "[$(date -Iseconds)] narrative stage 2 timed out after ${TO}s; retrying once"
+    sleep 10; _render; rc=$?
+  fi
 
   # If the renderer left our placeholder in place (errored / interrupted), don't
   # leave the page stuck on "Rendering…". Replace it with an honest failure page.

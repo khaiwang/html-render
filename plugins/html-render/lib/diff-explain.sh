@@ -27,8 +27,12 @@ if [ "${1:-}" = "__bg" ]; then
   [ -n "$RELATED_URL" ] && REL_ARGS=(--related-url "$RELATED_URL" --related-label "$RELATED_LABEL")
   echo "[$(date -Iseconds)] diff-explain stage 2: $NHUNKS hunk(s) → $URL"
   MODEL="${HTML_RENDER_MODEL:-sonnet}"
+  # timeout caps a stalled explorer (concurrent-session contention) — on timeout
+  # $EXPL is empty and the why column stays its visible "pending" state.
+  TO="${HTML_RENDER_TIMEOUT:-600}"
+  TIMEOUT=(); command -v timeout >/dev/null 2>&1 && TIMEOUT=(timeout "$TO")
   # Capable explorer: read + search + read-only-ish git, but no Write/WebFetch.
-  printf '%s' "${HTML_RENDER_PROMPT:-}" | HTML_RENDER_CHILD=1 claude -p \
+  printf '%s' "${HTML_RENDER_PROMPT:-}" | HTML_RENDER_CHILD=1 "${TIMEOUT[@]}" claude -p \
     ${MODEL:+--model "$MODEL"} --permission-mode default \
     --allowedTools "Read Grep Glob Bash(git *)" >"$EXPL" 2>>"$RLOG"
   if [ -s "$EXPL" ]; then
